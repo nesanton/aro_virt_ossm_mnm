@@ -46,10 +46,11 @@ else
   echo "[$(date)] RHSM registration complete."
 fi
 
-# ---- Step 2: Install base packages -------------------------
-echo "[$(date)] Installing git, tar, curl..."
-sudo dnf install -y git tar curl
-echo "[$(date)] Base packages installed."
+# ---- Step 2: Verify base tooling (curl/tar expected pre-installed in RHEL image) ---
+echo "[$(date)] Checking required base tools..."
+curl --version &>/dev/null || { echo 'ERROR: curl not found'; exit 1; }
+tar --version &>/dev/null || { echo 'ERROR: tar not found'; exit 1; }
+echo "[$(date)] curl and tar available."
 
 # ---- Step 3: Install .NET 9 SDK via dotnet-install.sh ------
 # rpm-based dotnet-sdk-9.0 does not resolve cleanly even with RHSM on RHEL 8;
@@ -61,24 +62,27 @@ else
   curl -sSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
   sudo bash /tmp/dotnet-install.sh --channel 9.0 --install-dir /usr/local/dotnet
   sudo ln -sf /usr/local/dotnet/dotnet /usr/bin/dotnet
-  dotnet --version
+  DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 dotnet --version
   echo "[$(date)] .NET 9 SDK installed."
 fi
 
-# ---- Step 4: Clone workshop repo (idempotent) --------------
-if [[ -d /opt/workshop ]]; then
-  echo "[$(date)] /opt/workshop already exists — skipping clone."
+# ---- Step 4: Download workshop repo (tarball fallback — no git needed) --------
+if [[ -d /opt/workshop/3-modernize-with-github-copilot ]]; then
+  echo "[$(date)] /opt/workshop already populated — skipping download."
 else
-  echo "[$(date)] Cloning modernize-monolith-workshop..."
-  sudo git clone --depth 1 \
-    https://github.com/Azure-Samples/modernize-monolith-workshop.git \
-    /opt/workshop
-  echo "[$(date)] Repo cloned."
+  echo "[$(date)] Downloading modernize-monolith-workshop tarball from GitHub..."
+  curl -fsSL \
+    https://github.com/Azure-Samples/modernize-monolith-workshop/archive/refs/heads/main.tar.gz \
+    -o /tmp/workshop.tar.gz
+  sudo mkdir -p /opt/workshop
+  sudo tar -xzf /tmp/workshop.tar.gz -C /opt/workshop --strip-components=1
+  rm -f /tmp/workshop.tar.gz
+  echo "[$(date)] Workshop repo extracted to /opt/workshop."
 fi
 
 # ---- Step 5: Publish app -----------------------------------
 echo "[$(date)] Publishing eShopLite.StoreCore to /opt/eshoplite..."
-sudo dotnet publish \
+sudo DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 dotnet publish \
   /opt/workshop/3-modernize-with-github-copilot/StartSample/src/eShopLite.StoreCore \
   -c Release -o /opt/eshoplite
 echo "[$(date)] App published."
@@ -98,6 +102,7 @@ Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=DOTNET_CLI_HOME=/tmp/dotnet-cli-home
 Environment=HOME=/root
 Environment=DOTNET_CLI_TELEMETRY_OPTOUT=1
+Environment=DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 Restart=always
 RestartSec=10
 StandardOutput=journal

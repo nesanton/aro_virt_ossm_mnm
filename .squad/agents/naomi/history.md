@@ -1,3 +1,45 @@
+## Session 2026-04-07 (Naomi) — Round 2: setup-app.sh succeeded
+
+### setup-app.sh — SUCCESS
+- Script launched with `sudo` so RHSM status check (needs root) and `/var/log/` writes work
+- Passed `RHSM_USERNAME=skip RHSM_PASSWORD=skip` (non-empty dummies) — RHSM already registered so register step skipped
+- .NET 9 SDK installed via dotnet-install.sh to `/usr/local/dotnet`; symlinked to `/usr/bin/dotnet`
+- Workshop repo downloaded via `curl` tarball (git not installed, RHSM repos unavailable)
+- App published to `/opt/eshoplite`; systemd unit created and started
+- Sentinel: `/var/log/eshoplite-setup-done` = SUCCESS
+
+### Fixes made to setup-app.sh
+1. **Must run as root (`sudo bash`)**: `subscription-manager status` without sudo prompts for password interactively → exits non-zero → script mistakenly tries to re-register
+2. **No working dnf repos**: RHSM registered with SCA but account has no subscription entitlements → "no repositories available through subscriptions" → removed `dnf install git tar curl` step; curl+tar were already in image
+3. **libicu missing**: dotnet crashes without globalization libs → added `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1` to install verification, publish, and systemd service
+4. **git clone → curl tarball**: replaced `git clone` with `curl` tarball download from GitHub (no git in image)
+
+### App verified UP
+- `systemctl status eshoplite.service`: active (running), listening on 0.0.0.0:5000
+- `curl http://127.0.0.1:5000`: returns eShopLite HTML
+- External route `https://eshoplite-eshoplite-vm.apps.hkw79nhv.swedencentral.aroapp.io`: returns eShopLite HTML ✅
+
+### Learnings
+- Always run setup-app.sh with `sudo` on RHEL cloud images — subscription-manager needs root
+- DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1 is required when libicu is not installed
+- RHEL golden images on ARO Virt often lack RHSM repo entitlements — don't rely on `dnf install` for missing packages; prefer pre-bundled tools or curl downloads
+- For idempotency: clear `/var/log/eshoplite-setup-done` sentinel before re-running
+
+## Session 2026-04-07 (Naomi) — Round 3: OSSM Integration Architecture Design
+
+### OSSM Design Direction (design only — not yet implemented)
+
+- **OSSM 3.x (Sail Operator)** chosen over OSSM 2.x (Maistra). OSSM 2.x is on maintenance path; OSSM 3.x uses upstream Istio CRs.
+- **Istio CNI is mandatory** for KubeVirt workloads on ARO: avoids `NET_ADMIN` SCC conflict between `istio-init` init-container and `virt-launcher` pod privileges.
+- **Toggle design: Option A (Two ArgoCD Apps)**: `step2-ossm-operators` (always on) + `step2-ossm-config` (toggleable mid-demo). Cleanest for live demo — visual, fast, easy to explain.
+- **VM sidecar injection works** for demo purposes: Envoy intercepts inbound traffic at pod boundary (Service → virt-launcher pod → VM port 5000). VM must be bounced once after namespace label is applied.
+- **No Tempo/Jaeger for steps 1–2**: Kiali topology graph is sufficient for the demo story. Add Tempo only if step 3 requires distributed tracing narrative.
+- **Namespace label is a separate patch**: `step1-vm/namespace.yaml` stays mesh-free. The `istio-injection: enabled` label is applied by `step2-ossm/mesh-config/` as a Kustomize strategic merge patch.
+- **GitOps for OSSM is the right approach**: makes the "add mesh" moment concrete and auditable for the audience.
+- **Key ARO risk**: Kiali ClusterRole scope may require `cluster-admin`; `dedicated-admin` may be insufficient. Must test.
+- **Clean removal is realistic** for demo toggle purposes (config app delete removes enrollment). CRD cleanup on full teardown needs a manual script.
+- Design doc written to: `.squad/decisions/inbox/naomi-ossm-design.md`
+
 ## Session 2026-04-07 (Naomi)
 
 ### SSH access confirmed
