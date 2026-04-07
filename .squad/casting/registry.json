@@ -1,0 +1,52 @@
+{
+  "agents": {
+    "holden": {
+      "persistent_name": "Holden",
+      "universe": "The Expanse",
+      "role": "Demo Lead & Architect",
+      "created_at": "2026-04-02T00:00:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "naomi": {
+      "persistent_name": "Naomi",
+      "universe": "The Expanse",
+      "role": "Platform Engineer",
+      "created_at": "2026-04-02T00:00:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "avasarala": {
+      "persistent_name": "Avasarala",
+      "universe": "The Expanse",
+      "role": "Storyteller / DevRel",
+      "created_at": "2026-04-02T00:00:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "amos": {
+      "persistent_name": "Amos",
+      "universe": "The Expanse",
+      "role": "DevOps / Pipelines",
+      "created_at": "2026-04-02T00:00:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "scribe": {
+      "persistent_name": "Scribe",
+      "universe": "exempt",
+      "role": "Session Logger",
+      "created_at": "2026-04-02T00:00:00Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "ralph": {
+      "persistent_name": "Ralph",
+      "universe": "exempt",
+      "role": "Work Monitor",
+      "created_at": "2026-04-02T00:00:00Z",
+      "legacy_named": false,
+      "status": "active"
+    }
+  }
+}

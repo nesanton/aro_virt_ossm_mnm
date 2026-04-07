@@ -1,10 +1,9 @@
 # ------------------------------------------------------------
-# VirtualMachine — eShopLite monolith on RHEL 8
+# VirtualMachine — eShopLite monolith on CentOS Stream 8
 #
-# Image choice: quay.io/containerdisks/rhel8
-#   - Official RHEL 8 containerdisk (requires Red Hat pull secret —
-#     included in ARO by default)
-#   - Reinforces the "this is a real enterprise legacy workload" narrative
+# Image: quay.io/containerdisks/centos-stream8
+#   - Public image, no pull secret required
+#   - CentOS Stream 8 = RHEL 8 community build; user-space identical
 #   - containerdisk = ephemeral root disk; perfect for "destroy and
 #     restart" demos (no PVC cleanup needed between cluster recreations)
 #
@@ -78,104 +77,13 @@ spec:
         # -----------------------------------------------------------
         - name: containerdisk
           containerDisk:
-            image: quay.io/containerdisks/rhel8
+            image: quay.io/containerdisks/centos-stream8
 
         # -----------------------------------------------------------
-        # cloud-init NoCloud: inline user-data drives first-boot setup.
-        # Using NoCloud (not ConfigDrive) because it's simpler and
-        # works out of the box with KubeVirt.
+        # cloud-init NoCloud: user-data is stored in a Secret to avoid
+        # KubeVirt's 2048-byte inline limit. See cloudinit-secret.yaml.
         # -----------------------------------------------------------
         - name: cloudinit
           cloudInitNoCloud:
-            userData: |
-              #cloud-config
-
-              # --------------------------------------------------------
-              # 1. Install OS-level dependencies
-              #    libicu    - required by .NET 9 (Unicode support)
-              #    krb5-libs - required by .NET 9 (TLS/Kerberos)
-              #    git       - to clone the workshop repo
-              #    curl      - to download the dotnet-install script
-              # --------------------------------------------------------
-              packages:
-                - curl
-                - git
-                - libicu
-                - krb5-libs
-                - openssl
-                - tar
-
-              # --------------------------------------------------------
-              # 2. Drop the systemd unit for the app before runcmd runs.
-              #    We write it here so it lands before we enable it.
-              # --------------------------------------------------------
-              write_files:
-                - path: /etc/systemd/system/eshoplite.service
-                  owner: root:root
-                  permissions: '0644'
-                  content: |
-                    [Unit]
-                    Description=eShopLite Monolith (.NET 9 / ASP.NET Core)
-                    Documentation=https://github.com/Azure-Samples/modernize-monolith-workshop
-                    After=network.target
-
-                    [Service]
-                    WorkingDirectory=/opt/eshoplite
-                    ExecStart=/usr/bin/dotnet eShopLite.StoreCore.dll
-                    # Bind on all interfaces so the KubeVirt masquerade
-                    # bridge can forward traffic from the Service.
-                    Environment=ASPNETCORE_URLS=http://0.0.0.0:5000
-                    Environment=ASPNETCORE_ENVIRONMENT=Production
-                    # dotnet CLI needs a writable home dir (used for telemetry opt-out, etc.)
-                    Environment=DOTNET_CLI_HOME=/tmp/dotnet-cli-home
-                    Environment=HOME=/root
-                    # Disable first-run telemetry to avoid build delays
-                    Environment=DOTNET_CLI_TELEMETRY_OPTOUT=1
-                    Restart=always
-                    RestartSec=10
-                    StandardOutput=journal
-                    StandardError=journal
-
-                    [Install]
-                    WantedBy=multi-user.target
-
-              runcmd:
-                # --------------------------------------------------------
-                # 3. Install .NET 9 SDK from the Microsoft RHEL 8 package repo.
-                #    Using the official Microsoft rpm repo — cleaner than the
-                #    install script and integrates with dnf for updates.
-                # --------------------------------------------------------
-                - curl -sSL https://packages.microsoft.com/config/rhel/8/prod.repo -o /etc/yum.repos.d/microsoft-prod.repo
-                - dnf install -y dotnet-sdk-9.0
-                # dotnet lands in /usr/bin/dotnet — no symlink needed
-
-                # --------------------------------------------------------
-                # 4. Clone the workshop repo
-                #    --depth 1: shallow clone, much faster (we don't need
-                #    history; only the current tree matters)
-                # --------------------------------------------------------
-                - git clone --depth 1 https://github.com/Azure-Samples/modernize-monolith-workshop.git /opt/workshop
-
-                # --------------------------------------------------------
-                # 5. Build + publish the monolith
-                #    We publish (not just build) so we get a self-contained
-                #    output dir that systemd can point at cleanly.
-                #    The StartSample in module 3 is the fully-migrated .NET 9
-                #    monolith — single project, SQLite, ASP.NET Core MVC.
-                # --------------------------------------------------------
-                - dotnet publish /opt/workshop/3-modernize-with-github-copilot/StartSample/src/eShopLite.StoreCore -c Release -o /opt/eshoplite
-
-                # --------------------------------------------------------
-                # 6. Enable and start the systemd service
-                # --------------------------------------------------------
-                - systemctl daemon-reload
-                - systemctl enable eshoplite.service
-                - systemctl start eshoplite.service
-
-                # --------------------------------------------------------
-                # 7. Open the firewall (if firewalld is active)
-                #    The '|| true' prevents cloud-init failure if firewalld
-                #    is not running (common in minimal VM images).
-                # --------------------------------------------------------
-                - firewall-cmd --permanent --add-port=5000/tcp || true
-                - firewall-cmd --reload || true
+            secretRef:
+              name: eshoplite-cloudinit

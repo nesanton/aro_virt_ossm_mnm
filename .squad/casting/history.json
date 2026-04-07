@@ -1,0 +1,19 @@
+{
+  "snapshots": [
+    {
+      "assignment_id": "aro-ossm-ghcp-2026-04-02",
+      "universe": "The Expanse",
+      "date": "2026-04-02T00:00:00Z",
+      "project": "aro-ossm-ghcp",
+      "requested_by": "anesterov",
+      "agents": [
+        { "name": "Holden", "role": "Demo Lead & Architect" },
+        { "name": "Naomi", "role": "Platform Engineer" },
+        { "name": "Avasarala", "role": "Storyteller / DevRel" },
+        { "name": "Amos", "role": "DevOps / Pipelines" },
+        { "name": "Scribe", "role": "Session Logger (exempt)" },
+        { "name": "Ralph", "role": "Work Monitor (exempt)" }
+      ]
+    }
+  ]
+}
