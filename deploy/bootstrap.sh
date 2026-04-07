@@ -333,8 +333,11 @@ echo "==> Deleting VM and PVC to force fresh cloud-init provisioning..."
 oc delete vm eshoplite-vm -n eshoplite-vm --ignore-not-found=true
 oc delete pvc eshoplite-vm-rootdisk -n eshoplite-vm --ignore-not-found=true
 oc wait --for=delete vmi/eshoplite-vm -n eshoplite-vm --timeout=120s 2>/dev/null || true
-echo "==> Reapplying VM manifest (ArgoCD will reconcile)..."
-oc apply -k "${SCRIPT_DIR}/step1-vm/"
+echo "==> Recreating VM only (not full kustomize — that would reset the patched secret)..."
+# IMPORTANT: apply only vm.yaml here, NOT `oc apply -k step1-vm/`
+# kustomize would overwrite the cloud-init secret back to the placeholder.
+# All other resources (namespace, service, route) were already applied via ArgoCD above.
+oc apply -f "${SCRIPT_DIR}/step1-vm/vm.yaml"
 echo "    VM recreated — cloud-init will run fresh on first boot."
 
 # ---- Done ---------------------------------------------------
