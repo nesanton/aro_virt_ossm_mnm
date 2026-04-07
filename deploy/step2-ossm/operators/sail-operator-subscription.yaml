@@ -8,6 +8,6 @@ metadata:
 spec:
   channel: stable
   installPlanApproval: Automatic
-  name: servicemesh-operator3
+  name: servicemeshoperator3
   source: redhat-operators
   sourceNamespace: openshift-marketplace

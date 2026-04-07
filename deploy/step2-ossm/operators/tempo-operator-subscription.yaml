@@ -8,6 +8,6 @@ metadata:
 spec:
   channel: stable
   installPlanApproval: Automatic
-  name: tempo-operator
+  name: tempo-product
   source: redhat-operators
   sourceNamespace: openshift-marketplace
