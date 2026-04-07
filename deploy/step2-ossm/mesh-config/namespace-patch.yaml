@@ -1,0 +1,23 @@
+# ------------------------------------------------------------
+# Ambient mesh enrollment for the eshoplite-vm namespace.
+#
+# Ambient mesh uses a namespace label instead of pod annotations:
+#   istio.io/dataplane-mode: ambient
+#
+# Applying this via ArgoCD means:
+#   toggle ON  → oc apply -f deploy/argocd/application-ossm-config.yaml
+#   toggle OFF → oc delete -f deploy/argocd/application-ossm-config.yaml
+#                (ArgoCD prune removes the label from the namespace)
+#
+# NO PeerAuthentication needed — ztunnel provides automatic mTLS at L4
+# for all pods/VMs in an ambient-enrolled namespace.
+#
+# NO VM restart needed — ztunnel captures traffic at the node CNI layer,
+# not inside the pod. Label applied = traffic captured immediately.
+# ------------------------------------------------------------
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: eshoplite-vm
+  labels:
+    istio.io/dataplane-mode: ambient

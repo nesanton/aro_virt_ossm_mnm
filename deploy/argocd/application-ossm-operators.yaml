@@ -1,0 +1,54 @@
+# ------------------------------------------------------------
+# ArgoCD Application — step2-ossm-operators
+#
+# ALWAYS ON. Installs OSSM 3.x operators and control plane:
+#   - Sail Operator (OSSM 3.x / Istio)
+#   - Kiali Operator 2.x
+#   - Tempo Operator
+#   - IstioCNI (ambient)
+#   - Istio control plane (ambient profile, v1.24.3)
+#   - TempoMonolithic (in-memory tracing backend)
+#   - Kiali (topology + distributed tracing UI)
+#
+# sync-wave ordering in operators/ handles the operator-first dependency:
+#   wave 0 = namespaces + subscriptions
+#   wave 1 = CRD-dependent CRs (with SkipDryRunOnMissingResource)
+#
+# Apply once after bootstrap:
+#   oc apply -f deploy/argocd/application-ossm-operators.yaml
+# ------------------------------------------------------------
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: step2-ossm-operators
+  namespace: openshift-gitops
+  labels:
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step2-ossm
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: eshoplite-demo
+
+  source:
+    repoURL: "https://github.com/YOUR_ORG/aro-ossm-ghcp.git"
+    targetRevision: main
+    path: deploy/step2-ossm/operators
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: istio-system
+
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 5m

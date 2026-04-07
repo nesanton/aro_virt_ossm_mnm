@@ -1,0 +1,27 @@
+apiVersion: kiali.io/v1alpha1
+kind: Kiali
+metadata:
+  name: kiali
+  namespace: istio-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  auth:
+    strategy: openshift
+  deployment:
+    accessible_namespaces:
+      - "**"
+    view_only_mode: false
+  external_services:
+    tracing:
+      enabled: true
+      provider: tempo
+      use_grpc: false
+      # TempoMonolithic CR named "tempo" in namespace "tracing-system" creates
+      # a service named "tempo-tempo". HTTP query port is 3200.
+      in_cluster_url: "http://tempo-tempo.tracing-system.svc:3200"
+      url: ""
+    grafana:
+      enabled: false
+  istio_namespace: istio-system

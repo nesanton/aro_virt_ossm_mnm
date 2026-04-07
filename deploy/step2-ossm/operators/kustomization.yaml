@@ -1,0 +1,35 @@
+# ------------------------------------------------------------
+# Kustomize entry point for deploy/step2-ossm/operators/
+#
+# ArgoCD Application: step2-ossm-operators
+# This application is ALWAYS ON — install operators + control plane once.
+#
+# IMPORTANT — sync-wave ordering:
+#   Wave 0: namespaces + subscriptions (OLM installs the operators)
+#   Wave 1: sailoperator.io, kiali.io, tempo.grafana.com CRs
+#
+# Wave 1 CRs depend on CRDs registered by the operators. ArgoCD will
+# fail on first sync of those resources if operators haven't finished
+# installing yet. Two mitigations are applied to each wave-1 resource:
+#   argocd.argoproj.io/sync-wave: "1"        — apply after wave 0
+#   argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+#     — skip dry-run validation if the CRD doesn't exist yet (prevents
+#       hard fail on first sync; ArgoCD will retry until CRD appears)
+#
+# Operators may take 5-10 minutes to install after first sync.
+# Run `oc get subscriptions -n openshift-operators` to monitor.
+# Then: `oc get istio,istiocni,kiali,tempomonolithic -A`
+# ------------------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - istio-system-namespace.yaml      # wave 0: Namespace istio-system
+  - tracing-system-namespace.yaml    # wave 0: Namespace tracing-system
+  - sail-operator-subscription.yaml  # wave 0: Sail Operator (OSSM 3.x)
+  - kiali-operator-subscription.yaml # wave 0: Kiali Operator 2.x
+  - tempo-operator-subscription.yaml # wave 0: Tempo Operator
+  - istiocni.yaml                    # wave 1: IstioCNI (ambient CNI plugin)
+  - istio.yaml                       # wave 1: Istio control plane (ambient profile)
+  - tempo-monolithic.yaml            # wave 1: TempoMonolithic (in-memory, no external storage)
+  - kiali.yaml                       # wave 1: Kiali (topology + tracing UI)

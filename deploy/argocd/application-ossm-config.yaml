@@ -1,0 +1,47 @@
+# ------------------------------------------------------------
+# ArgoCD Application — step2-ossm-config  (TOGGLEABLE)
+#
+# This is the DEMO TOGGLE. Manual sync only — no automated sync.
+#
+#   ENABLE MESH (before → after):
+#     oc apply -f deploy/argocd/application-ossm-config.yaml
+#     # Then sync in ArgoCD UI, OR:
+#     argocd app sync step2-ossm-config
+#     # Effect: adds `istio.io/dataplane-mode=ambient` to eshoplite-vm namespace.
+#     # Ambient mesh: NO VM restart needed. ztunnel captures traffic immediately.
+#
+#   DISABLE MESH (after → before):
+#     oc delete -f deploy/argocd/application-ossm-config.yaml
+#     # Effect: ArgoCD prune removes the ambient label from eshoplite-vm namespace.
+#     # ztunnel stops capturing traffic for that namespace.
+#
+# Pre-requisite: step2-ossm-operators must be synced and operators ready first.
+# ------------------------------------------------------------
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: step2-ossm-config
+  namespace: openshift-gitops
+  labels:
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step2-ossm
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: eshoplite-demo
+
+  source:
+    repoURL: "https://github.com/YOUR_ORG/aro-ossm-ghcp.git"
+    targetRevision: main
+    path: deploy/step2-ossm/mesh-config
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: eshoplite-vm
+
+  syncPolicy:
+    # NO automated sync — this app is manually toggled by the demo presenter.
+    # Sync via ArgoCD UI or: argocd app sync step2-ossm-config
+    syncOptions:
+      - CreateNamespace=false
+      - ServerSideApply=true

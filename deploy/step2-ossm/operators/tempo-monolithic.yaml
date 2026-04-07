@@ -1,0 +1,20 @@
+apiVersion: tempo.grafana.com/v1alpha1
+kind: TempoMonolithic
+metadata:
+  name: tempo
+  namespace: tracing-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  storage:
+    traces:
+      backend: memory
+      size: 2Gi
+  multitenancy:
+    enabled: false
+  jaegerui:
+    enabled: true
+    route:
+      enabled: true
+      termination: edge

@@ -32,9 +32,15 @@ spec:
     - "https://github.com/Azure-Samples/modernize-monolith-workshop.git"
 
   destinations:
-    # in-cluster deployment only — target the eshoplite-vm namespace
+    # in-cluster deployment — target all namespaces used by this demo
     - server: https://kubernetes.default.svc
       namespace: eshoplite-vm
+    - server: https://kubernetes.default.svc
+      namespace: istio-system
+    - server: https://kubernetes.default.svc
+      namespace: tracing-system
+    - server: https://kubernetes.default.svc
+      namespace: openshift-operators
 
   # Allow all resource groups including KubeVirt and OpenShift CRDs.
   # In production, restrict this to specific groups.
