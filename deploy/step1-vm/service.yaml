@@ -1,0 +1,37 @@
+# ------------------------------------------------------------
+# Service — exposes the eShopLite app running inside the VM
+#
+# KubeVirt VMs are reachable as Kubernetes pods: each VMI gets a pod
+# that runs the VM process. The pod inherits the labels from
+# spec.template.metadata.labels in the VirtualMachine manifest.
+#
+# This Service selects on `app: eshoplite-vm` which matches the
+# VMI pod. Traffic to port 80 (Service) is forwarded to port 5000
+# (Kestrel inside the VM, bound to 0.0.0.0 by cloud-init).
+#
+# NOTE: ClusterIP is sufficient here because the Route below will
+# handle external exposure. If you need direct NodePort access for
+# debugging, change `type` to NodePort and add a `nodePort` entry.
+# ------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: eshoplite
+  namespace: eshoplite-vm
+  labels:
+    app: eshoplite-vm
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step1-vm
+spec:
+  type: ClusterIP
+  # Selector must match labels on the VirtualMachineInstance pod,
+  # which inherits them from spec.template.metadata.labels in vm.yaml.
+  selector:
+    app: eshoplite-vm
+  ports:
+    - name: http
+      # Standard HTTP port for the Service — makes Route config cleaner
+      port: 80
+      # Kestrel inside the VM listens on 5000 (set via ASPNETCORE_URLS)
+      targetPort: 5000
+      protocol: TCP

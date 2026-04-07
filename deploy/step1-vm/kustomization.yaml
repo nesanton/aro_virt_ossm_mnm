@@ -1,0 +1,18 @@
+# ------------------------------------------------------------
+# Kustomize entry point for deploy/step1-vm/
+#
+# ArgoCD uses this file to discover what to apply. All resources
+# in this directory are listed here so ArgoCD pruning works
+# correctly (unknown resources are removed on sync).
+#
+# To apply manually without ArgoCD:
+#   kubectl apply -k deploy/step1-vm/
+# ------------------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml      # Namespace: eshoplite-vm
+  - vm.yaml             # VirtualMachine: eShopLite monolith on CentOS Stream 8
+  - service.yaml        # Service: ClusterIP :80 -> VM :5000
+  - route.yaml          # Route: edge TLS, auto-hostname

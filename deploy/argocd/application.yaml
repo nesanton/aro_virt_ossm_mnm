@@ -1,0 +1,66 @@
+# ------------------------------------------------------------
+# ArgoCD Application — eshoplite-step1-vm
+#
+# Tells ArgoCD to continuously sync deploy/step1-vm/ from this
+# repo into the eshoplite-vm namespace on the local cluster.
+#
+# Key sync settings:
+#   automated.selfHeal  — revert manual changes to the cluster
+#   automated.prune     — delete resources removed from Git
+#   CreateNamespace     — create eshoplite-vm if it doesn't exist
+#                         (belt-and-suspenders: namespace.yaml also
+#                          declares it declaratively)
+#
+# BEFORE applying: replace YOUR_ORG with your GitHub org/user.
+# If the repo is private, register the repo credentials in ArgoCD
+# first (see bootstrap.sh for how to do this via argocd CLI).
+# ------------------------------------------------------------
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: eshoplite-step1-vm
+  # ArgoCD Applications must live in the ArgoCD namespace
+  namespace: openshift-gitops
+  labels:
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step1-vm
+  # Finalizer ensures ArgoCD cleans up managed resources when
+  # the Application itself is deleted (important for safe teardown)
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  # Must reference the AppProject defined in app-project.yaml
+  project: eshoplite-demo
+
+  source:
+    # !! UPDATE THIS: replace with your actual repo URL !!
+    repoURL: "https://github.com/YOUR_ORG/aro-ossm-ghcp.git"
+    # Track main branch — demo content lives here
+    targetRevision: main
+    # Path to the kustomization.yaml that lists all step1 resources
+    path: deploy/step1-vm
+
+  destination:
+    # in-cluster deployment (ArgoCD manages the same cluster it runs on)
+    server: https://kubernetes.default.svc
+    namespace: eshoplite-vm
+
+  syncPolicy:
+    automated:
+      # selfHeal: if someone manually changes a resource, ArgoCD reverts it
+      selfHeal: true
+      # prune: resources deleted from Git are deleted from the cluster
+      prune: true
+    syncOptions:
+      # Create the namespace if it doesn't exist (safe, idempotent)
+      - CreateNamespace=true
+      # Use server-side apply to handle large objects (KubeVirt VM specs can be big)
+      - ServerSideApply=true
+    retry:
+      # Retry up to 5 times with exponential backoff
+      # Useful during initial cluster setup when CRDs may not be ready yet
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

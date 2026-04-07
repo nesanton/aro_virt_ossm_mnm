@@ -1,0 +1,181 @@
+# ------------------------------------------------------------
+# VirtualMachine — eShopLite monolith on RHEL 8
+#
+# Image choice: quay.io/containerdisks/rhel8
+#   - Official RHEL 8 containerdisk (requires Red Hat pull secret —
+#     included in ARO by default)
+#   - Reinforces the "this is a real enterprise legacy workload" narrative
+#   - containerdisk = ephemeral root disk; perfect for "destroy and
+#     restart" demos (no PVC cleanup needed between cluster recreations)
+#
+# App: eShopLite.StoreCore — the .NET 9 monolith from module 3 of the
+#   Azure-Samples/modernize-monolith-workshop workshop.
+#   (The original .NET Framework 4.8 version is Windows-only; this is
+#    the post-upgrade, Linux-runnable monolith — still a single app,
+#    still "legacy in a VM" for demo purposes.)
+#
+# cloud-init (cloudInitNoCloud.userData) drives first-boot provisioning:
+#   1. Installs .NET 9 SDK via Microsoft's dotnet-install.sh
+#   2. Clones the workshop repo (--depth 1 for speed)
+#   3. Publishes the monolith to /opt/eshoplite
+#   4. Installs + starts it as a systemd service on port 5000
+# ------------------------------------------------------------
+apiVersion: kubevirt.io/v1
+kind: VirtualMachine
+metadata:
+  name: eshoplite-vm
+  namespace: eshoplite-vm
+  labels:
+    app: eshoplite-vm
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step1-vm
+spec:
+  # Keep the VM running; ArgoCD will reconcile this to true on drift
+  running: true
+
+  template:
+    metadata:
+      labels:
+        # These labels are inherited by the VirtualMachineInstance pod,
+        # which is how the Service selector finds this VM.
+        app: eshoplite-vm
+        demo-step: step1-vm
+    spec:
+      domain:
+        cpu:
+          # 2 cores: enough to compile .NET on first boot without timing out
+          cores: 2
+        memory:
+          # 4 GiB: .NET 9 SDK build + SQLite + Kestrel comfortably fit here
+          guest: 4Gi
+        devices:
+          disks:
+            # Primary OS disk from containerdisk image
+            - name: containerdisk
+              disk:
+                bus: virtio
+            # Second disk carries the cloud-init user-data (ISO 9660)
+            - name: cloudinit
+              disk:
+                bus: virtio
+          interfaces:
+            # masquerade: VM gets a private IP, traffic NATted through the pod IP
+            # This is the standard KubeVirt/OpenShift Virt networking mode
+            - name: default
+              masquerade: {}
+
+      networks:
+        - name: default
+          pod: {}   # use the pod network (same network as Kubernetes Services)
+
+      volumes:
+        # -----------------------------------------------------------
+        # containerdisk: the entire OS image is bundled in a container.
+        # No PVC or DataVolume needed — the image is pulled and used
+        # directly as an ephemeral root disk.
+        # On cluster recreate: just re-apply the manifest and the image
+        # is re-pulled, cloud-init runs again, app is reinstalled.
+        # -----------------------------------------------------------
+        - name: containerdisk
+          containerDisk:
+            image: quay.io/containerdisks/rhel8
+
+        # -----------------------------------------------------------
+        # cloud-init NoCloud: inline user-data drives first-boot setup.
+        # Using NoCloud (not ConfigDrive) because it's simpler and
+        # works out of the box with KubeVirt.
+        # -----------------------------------------------------------
+        - name: cloudinit
+          cloudInitNoCloud:
+            userData: |
+              #cloud-config
+
+              # --------------------------------------------------------
+              # 1. Install OS-level dependencies
+              #    libicu    - required by .NET 9 (Unicode support)
+              #    krb5-libs - required by .NET 9 (TLS/Kerberos)
+              #    git       - to clone the workshop repo
+              #    curl      - to download the dotnet-install script
+              # --------------------------------------------------------
+              packages:
+                - curl
+                - git
+                - libicu
+                - krb5-libs
+                - openssl
+                - tar
+
+              # --------------------------------------------------------
+              # 2. Drop the systemd unit for the app before runcmd runs.
+              #    We write it here so it lands before we enable it.
+              # --------------------------------------------------------
+              write_files:
+                - path: /etc/systemd/system/eshoplite.service
+                  owner: root:root
+                  permissions: '0644'
+                  content: |
+                    [Unit]
+                    Description=eShopLite Monolith (.NET 9 / ASP.NET Core)
+                    Documentation=https://github.com/Azure-Samples/modernize-monolith-workshop
+                    After=network.target
+
+                    [Service]
+                    WorkingDirectory=/opt/eshoplite
+                    ExecStart=/usr/bin/dotnet eShopLite.StoreCore.dll
+                    # Bind on all interfaces so the KubeVirt masquerade
+                    # bridge can forward traffic from the Service.
+                    Environment=ASPNETCORE_URLS=http://0.0.0.0:5000
+                    Environment=ASPNETCORE_ENVIRONMENT=Production
+                    # dotnet CLI needs a writable home dir (used for telemetry opt-out, etc.)
+                    Environment=DOTNET_CLI_HOME=/tmp/dotnet-cli-home
+                    Environment=HOME=/root
+                    # Disable first-run telemetry to avoid build delays
+                    Environment=DOTNET_CLI_TELEMETRY_OPTOUT=1
+                    Restart=always
+                    RestartSec=10
+                    StandardOutput=journal
+                    StandardError=journal
+
+                    [Install]
+                    WantedBy=multi-user.target
+
+              runcmd:
+                # --------------------------------------------------------
+                # 3. Install .NET 9 SDK from the Microsoft RHEL 8 package repo.
+                #    Using the official Microsoft rpm repo — cleaner than the
+                #    install script and integrates with dnf for updates.
+                # --------------------------------------------------------
+                - curl -sSL https://packages.microsoft.com/config/rhel/8/prod.repo -o /etc/yum.repos.d/microsoft-prod.repo
+                - dnf install -y dotnet-sdk-9.0
+                # dotnet lands in /usr/bin/dotnet — no symlink needed
+
+                # --------------------------------------------------------
+                # 4. Clone the workshop repo
+                #    --depth 1: shallow clone, much faster (we don't need
+                #    history; only the current tree matters)
+                # --------------------------------------------------------
+                - git clone --depth 1 https://github.com/Azure-Samples/modernize-monolith-workshop.git /opt/workshop
+
+                # --------------------------------------------------------
+                # 5. Build + publish the monolith
+                #    We publish (not just build) so we get a self-contained
+                #    output dir that systemd can point at cleanly.
+                #    The StartSample in module 3 is the fully-migrated .NET 9
+                #    monolith — single project, SQLite, ASP.NET Core MVC.
+                # --------------------------------------------------------
+                - dotnet publish /opt/workshop/3-modernize-with-github-copilot/StartSample/src/eShopLite.StoreCore -c Release -o /opt/eshoplite
+
+                # --------------------------------------------------------
+                # 6. Enable and start the systemd service
+                # --------------------------------------------------------
+                - systemctl daemon-reload
+                - systemctl enable eshoplite.service
+                - systemctl start eshoplite.service
+
+                # --------------------------------------------------------
+                # 7. Open the firewall (if firewalld is active)
+                #    The '|| true' prevents cloud-init failure if firewalld
+                #    is not running (common in minimal VM images).
+                # --------------------------------------------------------
+                - firewall-cmd --permanent --add-port=5000/tcp || true
+                - firewall-cmd --reload || true

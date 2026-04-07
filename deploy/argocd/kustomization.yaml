@@ -1,0 +1,18 @@
+# ------------------------------------------------------------
+# Kustomize entry point for deploy/argocd/
+#
+# Not used by ArgoCD itself — this is for the bootstrap phase:
+# the human operator applies these two manifests once (before
+# ArgoCD can manage itself), then ArgoCD takes over from Git.
+#
+# To bootstrap:
+#   kubectl apply -k deploy/argocd/
+#
+# Or see deploy/bootstrap.sh for the full sequence.
+# ------------------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - app-project.yaml    # AppProject: eshoplite-demo (apply before Application)
+  - application.yaml    # Application: eshoplite-step1-vm

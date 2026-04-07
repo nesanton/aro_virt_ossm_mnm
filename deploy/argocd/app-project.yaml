@@ -1,0 +1,47 @@
+# ------------------------------------------------------------
+# AppProject — eshoplite-demo
+#
+# AppProjects scope what ArgoCD Applications within this project
+# can do: which source repos they may pull from, which clusters
+# and namespaces they may deploy to, and which resource types
+# are permitted.
+#
+# This is intentionally permissive for a demo:
+# - allows any resource kind (including KubeVirt CRDs)
+# - restricts destination to the local cluster and eshoplite-vm
+#   namespace so we don't accidentally deploy to the wrong place
+#
+# Apply first — the Application CR below depends on this project existing.
+# ------------------------------------------------------------
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: eshoplite-demo
+  # AppProject CRs live in the ArgoCD installation namespace
+  namespace: openshift-gitops
+  labels:
+    app.kubernetes.io/part-of: aro-ossm-demo
+spec:
+  description: "eShopLite modernization demo — ARO + ARO Virt + OSSM"
+
+  # Allow ArgoCD to pull from this repo (and the workshop repo for reference)
+  sourceRepos:
+    # This repo — contains all deploy/ manifests
+    - "https://github.com/YOUR_ORG/aro-ossm-ghcp.git"   # <-- update with your repo URL
+    # Workshop source repo (referenced in cloud-init, not deployed by ArgoCD directly)
+    - "https://github.com/Azure-Samples/modernize-monolith-workshop.git"
+
+  destinations:
+    # in-cluster deployment only — target the eshoplite-vm namespace
+    - server: https://kubernetes.default.svc
+      namespace: eshoplite-vm
+
+  # Allow all resource groups including KubeVirt and OpenShift CRDs.
+  # In production, restrict this to specific groups.
+  clusterResourceWhitelist:
+    - group: "*"
+      kind: "*"
+
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"

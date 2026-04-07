@@ -1,0 +1,23 @@
+# ------------------------------------------------------------
+# Namespace for the eShopLite VM and related resources.
+#
+# ArgoCD will create this namespace automatically when it applies
+# the step1-vm Application (because we set CreateNamespace=true
+# in the sync options in deploy/argocd/application.yaml).
+#
+# We still declare it here so the namespace config is part of the
+# GitOps source of truth and can carry labels/annotations we need.
+#
+# NOTE for step2: when enrolling in OSSM, add the label:
+#   istio-injection: enabled
+# to this namespace (or use SMCP memberSelector).
+# ------------------------------------------------------------
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: eshoplite-vm
+  labels:
+    # Identifies this namespace as part of the ARO demo
+    app.kubernetes.io/part-of: aro-ossm-demo
+    # step tag — used to distinguish demo phases
+    demo-step: step1-vm

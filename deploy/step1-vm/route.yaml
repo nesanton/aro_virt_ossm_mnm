@@ -1,0 +1,45 @@
+# ------------------------------------------------------------
+# Route — exposes the eShopLite Service externally via the
+# OpenShift HAProxy router (ingress controller).
+#
+# Using edge TLS termination: TLS is terminated at the router,
+# traffic to the Service travels over plain HTTP. This is the
+# simplest secure setup for a demo — no cert management inside
+# the VM required.
+#
+# The hostname is intentionally left unset. OpenShift will
+# auto-generate a hostname of the form:
+#   eshoplite-eshoplite-vm.<cluster-apps-domain>
+# You can pin it by setting `spec.host` explicitly.
+#
+# NOTE for step 2 (OSSM): when you introduce the VirtualService
+# for traffic splitting, you may want to add an Istio Gateway
+# instead of (or alongside) this Route, to let OSSM control
+# external ingress.
+# ------------------------------------------------------------
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: eshoplite
+  namespace: eshoplite-vm
+  labels:
+    app: eshoplite-vm
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step1-vm
+spec:
+  # Leave host blank — OpenShift assigns: eshoplite-eshoplite-vm.<apps-domain>
+  # Uncomment and fill to use a custom hostname:
+  # host: eshoplite.apps.YOUR_CLUSTER_DOMAIN
+
+  to:
+    kind: Service
+    name: eshoplite
+    weight: 100
+  port:
+    # Matches the port name in the Service definition
+    targetPort: http
+  tls:
+    # edge: TLS terminates at the router; backend receives plain HTTP
+    termination: edge
+    # Redirect HTTP clients to HTTPS automatically
+    insecureEdgeTerminationPolicy: Redirect
