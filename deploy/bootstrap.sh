@@ -303,29 +303,33 @@ print(json.dumps(s))
 oc secrets link default redhat-pull-secret --for=pull -n eshoplite-vm 2>/dev/null || true
 echo "    Pull secret ready."
 
+# ---- Create cloud-init secret with real SSH public key -----
+# IMPORTANT: This secret is NOT in kustomization.yaml and NOT managed by ArgoCD.
+# Bootstrap owns it. Creating it BEFORE the ArgoCD Application is applied ensures
+# cloud-init gets the real key — ArgoCD self-heal cannot revert it.
+echo ""
+echo "==> Creating eshoplite-cloudinit secret with SSH public key..."
+VM_PUBKEY=$(cat "$HOME/.ssh/aro-demo-vm.pub")
+USERDATA=$(python3 -c "
+import yaml, sys
+with open('${SCRIPT_DIR}/step1-vm/cloudinit-secret.yaml') as f:
+    doc = yaml.safe_load(f)
+ud = doc['stringData']['userdata']
+ud = ud.replace('ssh_authorized_keys: []', 'ssh_authorized_keys:\n  - $VM_PUBKEY')
+print(ud)
+")
+oc create namespace eshoplite-vm --dry-run=client -o yaml | oc apply -f -
+oc create secret generic eshoplite-cloudinit \
+  --from-literal=userdata="$USERDATA" \
+  -n eshoplite-vm --dry-run=client -o yaml | oc apply -f -
+echo "    Secret created with real SSH public key."
+
 # Substitute the placeholder before applying
 sed "s|https://github.com/YOUR_ORG/aro-ossm-ghcp.git|${GIT_REPO_URL}|g" \
   "${SCRIPT_DIR}/argocd/app-project.yaml" | oc apply -f -
 
 sed "s|https://github.com/YOUR_ORG/aro-ossm-ghcp.git|${GIT_REPO_URL}|g" \
   "${SCRIPT_DIR}/argocd/application.yaml" | oc apply -f -
-
-# ---- Patch cloud-init secret with real SSH public key ------
-echo ""
-echo "==> Patching eshoplite-cloudinit secret with SSH public key..."
-VM_PUBKEY=$(cat "$HOME/.ssh/aro-demo-vm.pub")
-# Wait briefly for ArgoCD to create the secret if it doesn't exist yet
-for i in 1 2 3 4 5; do
-  oc get secret eshoplite-cloudinit -n eshoplite-vm &>/dev/null && break
-  echo "    ... waiting for secret to appear (attempt $i/5)"; sleep 10
-done
-USERDATA=$(oc get secret eshoplite-cloudinit -n eshoplite-vm \
-  -o jsonpath='{.data.userdata}' | base64 -d | \
-  sed "s|ssh_authorized_keys: \[\]|ssh_authorized_keys:\n  - $VM_PUBKEY|")
-oc create secret generic eshoplite-cloudinit \
-  --from-literal=userdata="$USERDATA" \
-  -n eshoplite-vm --dry-run=client -o yaml | oc apply -f -
-echo "    Secret patched."
 
 # ---- Delete + recreate VM to force clean cloud-init run ----
 echo ""

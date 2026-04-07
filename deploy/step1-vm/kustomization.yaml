@@ -13,7 +13,10 @@ kind: Kustomization
 
 resources:
   - namespace.yaml          # Namespace: eshoplite-vm
-  - cloudinit-secret.yaml   # Secret: cloud-init user-data (avoids 2048-byte inline limit)
+  # cloudinit-secret.yaml is intentionally NOT listed here.
+  # ArgoCD must not manage it — bootstrap.sh creates it with the real SSH
+  # public key injected. If ArgoCD managed it, self-heal would revert the
+  # key back to the placeholder on every resync before cloud-init runs.
   - vm.yaml                 # VirtualMachine: eShopLite monolith on RHEL 8
   - service.yaml            # Service: ClusterIP :80 -> VM :5000
   - route.yaml              # Route: edge TLS, auto-hostname
