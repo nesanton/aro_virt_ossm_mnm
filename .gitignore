@@ -8,3 +8,6 @@
 
 # Secrets — never commit
 .env
+
+# VM debug SSH key (generated at bootstrap time)
+*.pem

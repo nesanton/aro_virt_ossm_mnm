@@ -34,6 +34,13 @@ GIT_TOKEN="${GIT_TOKEN:-}"
 echo "==> Verifying cluster access..."
 oc whoami || { echo "ERROR: Not logged in. Run 'oc login' first."; exit 1; }
 
+# ---- SSH keypair for VM debug access -----------------------
+VM_KEY="$HOME/.ssh/aro-demo-vm"
+if [ ! -f "$VM_KEY" ]; then
+  echo "[ssh] Generating VM debug keypair at $VM_KEY"
+  ssh-keygen -t ed25519 -f "$VM_KEY" -N "" -C "aro-demo-vm@$(hostname)"
+fi
+
 # ---- Install OpenShift GitOps operator ----------------------
 echo ""
 echo "==> Installing OpenShift GitOps operator (idempotent)..."
@@ -302,6 +309,33 @@ sed "s|https://github.com/YOUR_ORG/aro-ossm-ghcp.git|${GIT_REPO_URL}|g" \
 
 sed "s|https://github.com/YOUR_ORG/aro-ossm-ghcp.git|${GIT_REPO_URL}|g" \
   "${SCRIPT_DIR}/argocd/application.yaml" | oc apply -f -
+
+# ---- Patch cloud-init secret with real SSH public key ------
+echo ""
+echo "==> Patching eshoplite-cloudinit secret with SSH public key..."
+VM_PUBKEY=$(cat "$HOME/.ssh/aro-demo-vm.pub")
+# Wait briefly for ArgoCD to create the secret if it doesn't exist yet
+for i in 1 2 3 4 5; do
+  oc get secret eshoplite-cloudinit -n eshoplite-vm &>/dev/null && break
+  echo "    ... waiting for secret to appear (attempt $i/5)"; sleep 10
+done
+USERDATA=$(oc get secret eshoplite-cloudinit -n eshoplite-vm \
+  -o jsonpath='{.data.userdata}' | base64 -d | \
+  sed "s|ssh_authorized_keys: \[\]|ssh_authorized_keys:\n  - $VM_PUBKEY|")
+oc create secret generic eshoplite-cloudinit \
+  --from-literal=userdata="$USERDATA" \
+  -n eshoplite-vm --dry-run=client -o yaml | oc apply -f -
+echo "    Secret patched."
+
+# ---- Delete + recreate VM to force clean cloud-init run ----
+echo ""
+echo "==> Deleting VM and PVC to force fresh cloud-init provisioning..."
+oc delete vm eshoplite-vm -n eshoplite-vm --ignore-not-found=true
+oc delete pvc eshoplite-vm-rootdisk -n eshoplite-vm --ignore-not-found=true
+oc wait --for=delete vmi/eshoplite-vm -n eshoplite-vm --timeout=120s 2>/dev/null || true
+echo "==> Reapplying VM manifest (ArgoCD will reconcile)..."
+oc apply -k "${SCRIPT_DIR}/step1-vm/"
+echo "    VM recreated — cloud-init will run fresh on first boot."
 
 # ---- Done ---------------------------------------------------
 ARGOCD_UI_HOST=$(oc get route openshift-gitops-server \
