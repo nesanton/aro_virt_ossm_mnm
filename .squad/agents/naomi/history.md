@@ -1,3 +1,29 @@
+## Session 2026-04-07 (Naomi)
+
+### SSH access confirmed
+- virtctl port-forward → 2222:22 worked; `cloud-user` SSH auth confirmed via `~/.ssh/aro-demo-vm`
+- `authorized_keys` contains `ssh-ed25519 ... aro-demo-vm@whoanton`
+
+### setup-app.sh — BLOCKED: RHSM placeholder creds
+- `RHSM_USERNAME` in `.env` is still `your-redhat-email@example.com` (placeholder)
+- `subscription-manager register` returned 401; script exited at Step 1
+- **Action needed:** anesterov must set real RHSM credentials in `.env` and re-run:
+  ```
+  source .env
+  ssh -i ~/.ssh/aro-demo-vm -o StrictHostKeyChecking=no -p 2222 cloud-user@127.0.0.1 \
+    "RHSM_USERNAME=$RHSM_USERNAME RHSM_PASSWORD=$RHSM_PASSWORD bash ~/setup-app.sh"
+  ```
+- VM state: no dotnet, no eshoplite service, no sentinel file
+
+### Cloud-init cleanup done
+- Removed `chpasswd` block and `ssh_pwauth: false` from `cloudinit-secret.yaml`
+- Live secret (re)created in cluster with SSH key only, no password
+- Change takes effect on next full VM redeploy
+
+### Port 5000 not yet testable (app not running)
+
+---
+
 # Project Context
 
 - **Owner:** anesterov
@@ -6,7 +32,53 @@
 - **App:** modernize-monolith-workshop (Azure-Samples) — stepped branches used as baselines
 - **Created:** 2026-04-02
 
-## Learnings
+## Option A: Minimal Cloud-Init + Manual Post-Boot Script (2026-04-07)
+
+### Decision
+- Abandoned heavy cloud-init (packages + write_files + runcmd) — app was not starting reliably
+- Switched to **Option A**: minimal cloud-init (SSH key + console password only), all app setup via a standalone script run by the operator after VM boot
+
+### Changes
+- `deploy/step1-vm/cloudinit-secret.yaml` — stripped to 3 directives: `ssh_authorized_keys`, `chpasswd`, `ssh_pwauth`
+- `deploy/step1-vm/setup-app.sh` (NEW) — idempotent bash script that registers RHSM, installs dotnet via dotnet-install.sh, clones repo, publishes app, installs systemd unit, opens firewall port 5000
+- `.env` — added `RHSM_USERNAME` / `RHSM_PASSWORD` placeholder entries
+- `deploy/bootstrap.sh` — added SSH connection + setup-app.sh run instructions at end of output
+
+### Key constraints confirmed
+- RHEL 8 golden image supports Simple Content Access — `subscription-manager register` enables dnf
+- dotnet-sdk-9.0 rpm naming doesn't resolve even with RHSM; use `dotnet-install.sh` (channel 9.0)
+- `setup-app.sh` is safe to commit (no creds — RHSM creds passed as env vars at runtime)
+- `.env` stays gitignored; real RHSM creds stay local only
+
+
+
+### Security cleanup
+- Removed plaintext `chpasswd` block (cloud-user:eshoplite123) from `cloudinit-secret.yaml` — was leaked in public git
+- Removed hardcoded SSH key (`anesterov@whoanton`) from `cloudinit-secret.yaml`
+- Replaced with `ssh_authorized_keys: []` placeholder; `bootstrap.sh` now injects the real key at deploy time
+- Added `*.pem` to `.gitignore`
+
+### Cloud-init improvements
+- runcmd now wrapped in `(set -xe; ...) || echo "FAILED"` subshell
+- All output tees to `/var/log/eshoplite-init.log`
+- Sentinel file written at end: `/var/log/eshoplite-init-done` (contains "SUCCESS" or "FAILED: <exitcode>")
+
+### Bootstrap improvements
+- `bootstrap.sh` now generates `~/.ssh/aro-demo-vm` keypair if not present
+- Patches `eshoplite-cloudinit` secret with real pubkey before VM boot
+- Deletes VM + PVC on each run then re-applies to force clean cloud-init
+
+### Key insight: ArgoCD vs manual secret patching
+- `oc apply -k` overwrites the secret with the placeholder; the SSH patch must happen AFTER kustomize apply
+- ArgoCD selfHeal=true will also try to revert the patched secret to the git version — potential conflict
+- For now: bootstrap.sh patches after apply; ArgoCD sync may revert. Long-term: use ExternalSecret or a post-sync hook
+
+### VM redeploy (2026-04-07)
+- Deleted `eshoplite-vm` VM and rootdisk PVC
+- Re-applied kustomize manifest; patched secret with `~/.ssh/id_ed25519.pub`
+- VM in Scheduling phase at time of this note — cloud-init will run fresh on first boot
+- Expect ~15 min for dnf install + dotnet publish to complete
+
 
 - VM phase: deploy monolith app into a RHEL VM on ARO Virt using cloud-init + DataVolume
 - Container phase: extract one service at a time from the monolith into container Deployments
