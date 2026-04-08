@@ -5,8 +5,8 @@
 #   - Sail Operator (OSSM 3.x / Istio)
 #   - Kiali Operator 2.x
 #   - Tempo Operator
-#   - IstioCNI (ambient)
-#   - Istio control plane (ambient profile, v1.24.3)
+#   - IstioCNI (node-level CNI — ARO SCC compat, see D-003)
+#   - Istio control plane (sidecar mode, profile: default)
 #   - TempoMonolithic (in-memory tracing backend)
 #   - Kiali (topology + distributed tracing UI)
 #

@@ -3,6 +3,7 @@
 #
 # ArgoCD Application: step2-ossm-operators
 # This application is ALWAYS ON — install operators + control plane once.
+# Mode: sidecar injection via Istio CNI (D-001, D-003). Ambient/ztunnel removed.
 #
 # IMPORTANT — sync-wave ordering:
 #   Wave 0: namespaces + subscriptions (OLM installs the operators)
@@ -29,10 +30,8 @@ resources:
   - sail-operator-subscription.yaml  # wave 0: Sail Operator (OSSM 3.x)
   - kiali-operator-subscription.yaml # wave 0: Kiali Operator 2.x
   - tempo-operator-subscription.yaml # wave 0: Tempo Operator
-  - istiocni.yaml                    # wave 1: IstioCNI (ambient CNI plugin)
-  - istio.yaml                       # wave 1: Istio control plane (ambient profile)
-  - ztunnel.yaml                     # wave 1: ZTunnel DaemonSet (required for ambient)
-  - ztunnel-impersonate-rbac.yaml    # wave 1: ARO fix — ztunnel impersonate RBAC for cert signing
+  - istiocni.yaml                    # wave 1: IstioCNI (node-level CNI — required for ARO SCC compat, see D-003)
+  - istio.yaml                       # wave 1: Istio control plane (sidecar profile)
   - tempo-monolithic.yaml            # wave 1: TempoMonolithic (in-memory, no external storage)
   - prometheus.yaml                  # wave 1: Prometheus (required by Kiali for traffic graph)
   - kiali.yaml                       # wave 1: Kiali (topology + tracing UI)

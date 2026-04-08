@@ -7,13 +7,13 @@
 #     oc apply -f deploy/argocd/application-ossm-config.yaml
 #     # Then sync in ArgoCD UI, OR:
 #     argocd app sync step2-ossm-config
-#     # Effect: adds `istio.io/dataplane-mode=ambient` to eshoplite-vm namespace.
-#     # Ambient mesh: NO VM restart needed. ztunnel captures traffic immediately.
+#     # Effect: adds `istio-injection=enabled` to eshoplite-vm namespace.
+#     # Sidecar mode: VM must be restarted after label is applied for injection.
 #
 #   DISABLE MESH (after → before):
 #     oc delete -f deploy/argocd/application-ossm-config.yaml
-#     # Effect: ArgoCD prune removes the ambient label from eshoplite-vm namespace.
-#     # ztunnel stops capturing traffic for that namespace.
+#     # Effect: ArgoCD prune removes istio-injection label from eshoplite-vm namespace.
+#     # Existing sidecar containers remain until next VM restart.
 #
 # Pre-requisite: step2-ossm-operators must be synced and operators ready first.
 # ------------------------------------------------------------
