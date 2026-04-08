@@ -56,7 +56,16 @@ spec:
       - CreateNamespace=true
       # Use server-side apply to handle large objects (KubeVirt VM specs can be big)
       - ServerSideApply=true
-    retry:
+  # KubeVirt assigns macAddress to every interface at creation time.
+  # This field is a server-side default — not in our Git spec — so ArgoCD
+  # would otherwise perpetually detect drift and trigger VM-restarting self-heals.
+  ignoreDifferences:
+    - group: kubevirt.io
+      kind: VirtualMachine
+      jsonPointers:
+        - /spec/template/spec/domain/devices/interfaces/0/macAddress
+
+  retry:
       # Retry up to 5 times with exponential backoff
       # Useful during initial cluster setup when CRDs may not be ready yet
       limit: 5
