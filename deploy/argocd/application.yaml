@@ -64,3 +64,7 @@ spec:
         duration: 5s
         factor: 2
         maxDuration: 3m
+
+  # namespace.yaml is removed from step1-vm/kustomization.yaml — ArgoCD creates
+  # the namespace via CreateNamespace=true. This avoids SSA manager conflicts
+  # with step2-ossm-config which adds the ambient mesh label to the namespace.

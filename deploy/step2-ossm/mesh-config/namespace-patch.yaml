@@ -20,4 +20,6 @@ kind: Namespace
 metadata:
   name: eshoplite-vm
   labels:
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step1-vm
     istio.io/dataplane-mode: ambient

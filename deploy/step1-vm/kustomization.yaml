@@ -12,7 +12,10 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - namespace.yaml          # Namespace: eshoplite-vm
+  # namespace.yaml is intentionally NOT listed here.
+  # ArgoCD creates the namespace via CreateNamespace=true in the Application
+  # syncOptions. Keeping it out means step2-ossm-config (which adds the ambient
+  # mesh label) is the sole SSA owner of the namespace object — no label fight.
   # cloudinit-secret.yaml is intentionally NOT listed here.
   # ArgoCD must not manage it — bootstrap.sh creates it with the real SSH
   # public key injected. If ArgoCD managed it, self-heal would revert the
