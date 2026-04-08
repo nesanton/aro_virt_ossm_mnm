@@ -90,8 +90,14 @@ spec:
           interfaces:
             # masquerade: VM gets a private IP, traffic NATted through the pod IP
             # This is the standard KubeVirt/OpenShift Virt networking mode
+            # ports must be declared explicitly so KubeVirt sets up the iptables
+            # DNAT rules that forward inbound traffic from the pod IP into the VM
             - name: default
-              masquerade: {}
+              masquerade:
+                ports:
+                  - name: http
+                    port: 5000
+                    protocol: TCP
 
       networks:
         - name: default
