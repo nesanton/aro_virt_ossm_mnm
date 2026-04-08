@@ -107,6 +107,17 @@ oc get pods -n eshoplite-vm -o wide
 oc logs -n istio-system -l app=ztunnel --tail=50 | grep eshoplite
 ```
 
+**502 after enabling mesh (KubeVirt masquerade networking):**
+KubeVirt `masquerade` mode NATs port 5000 through QEMU userspace — port 5000 is not
+bound directly in the pod netns. Ztunnel intercepts at the pod netns boundary and gets
+`Connection refused`. The VM spec in `step1-vm/vm.yaml` includes:
+```yaml
+annotations:
+  traffic.sidecar.istio.io/excludeInboundPorts: "5000"
+```
+This tells ztunnel to leave inbound port 5000 alone, letting traffic flow through QEMU
+normally. If you ever redeploy the VM without this annotation, 502s will return.
+
 **Full mesh health check:**
 ```bash
 oc get istio,istiocni,ztunnel -A

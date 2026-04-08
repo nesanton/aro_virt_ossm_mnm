@@ -64,6 +64,13 @@ spec:
         # which is how the Service selector finds this VM.
         app: eshoplite-vm
         demo-step: step1-vm
+      annotations:
+        # KubeVirt masquerade networking: port 5000 is NAT'd through QEMU userspace,
+        # not bound directly in the pod netns. Ztunnel (ambient mesh) intercepts at
+        # the pod netns boundary and cannot reach QEMU's internal NAT.
+        # Exclude port 5000 from ztunnel inbound capture so traffic flows through
+        # QEMU unmodified. All other traffic (outbound visibility, mTLS) is unaffected.
+        traffic.sidecar.istio.io/excludeInboundPorts: "5000"
     spec:
       domain:
         cpu:
