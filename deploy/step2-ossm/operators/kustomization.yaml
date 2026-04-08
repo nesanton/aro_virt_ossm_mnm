@@ -32,6 +32,7 @@ resources:
   - istiocni.yaml                    # wave 1: IstioCNI (ambient CNI plugin)
   - istio.yaml                       # wave 1: Istio control plane (ambient profile)
   - ztunnel.yaml                     # wave 1: ZTunnel DaemonSet (required for ambient)
+  - ztunnel-impersonate-rbac.yaml    # wave 1: ARO fix — ztunnel impersonate RBAC for cert signing
   - tempo-monolithic.yaml            # wave 1: TempoMonolithic (in-memory, no external storage)
   - prometheus.yaml                  # wave 1: Prometheus (required by Kiali for traffic graph)
   - kiali.yaml                       # wave 1: Kiali (topology + tracing UI)

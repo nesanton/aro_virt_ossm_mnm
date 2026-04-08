@@ -1,0 +1,42 @@
+---
+# Sail Operator on ARO generates a minimal ztunnel ClusterRole that only
+# grants securitycontextconstraints/use. Missing: the impersonate verb on
+# serviceaccounts, which istiod's serverca component requires to issue mTLS
+# certificates on behalf of workload service accounts (ambient SPIFFE identity).
+#
+# Without this, ztunnel logs: "request impersonation authentication failure"
+# and cannot complete HBONE inbound tunnels for enrolled workloads.
+#
+# This is applied in wave 1 (after Sail Operator installs the ztunnel SA).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ztunnel-impersonate
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+rules:
+- apiGroups: [""]
+  resources: ["serviceaccounts"]
+  verbs: ["impersonate"]
+- apiGroups: [""]
+  resources: ["pods", "nodes", "namespaces", "services", "endpoints"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.istio.io", "security.istio.io", "telemetry.istio.io"]
+  resources: ["*"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ztunnel-impersonate
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ztunnel-impersonate
+subjects:
+- kind: ServiceAccount
+  name: ztunnel
+  namespace: istio-system
