@@ -239,3 +239,64 @@
 - GIT_USERNAME — GitHub username (only for private repos)
 - GIT_TOKEN    — GitHub PAT (only for private repos)
 - ARGOCD_NAMESPACE — defaults to openshift-gitops (usually correct for ARO)
+
+---
+
+## Session 2026-04-09 (Naomi) — Step1 Route 503 Fix
+
+### Root cause confirmed: sidecar injected in step1, pod 1/2 → no ready endpoints → Route 503
+
+The D010 audit added `sidecar.istio.io/inject: "true"` to the VMI template as
+"belt-and-suspenders alongside istio-injection=enabled on namespace". This was incorrect.
+
+**How Istio webhook injection works:**
+The Istio mutating admission webhook fires if EITHER:
+- the namespace has `istio-injection: enabled`, OR
+- the pod has `sidecar.istio.io/inject: "true"`
+
+In step1, the namespace has NO mesh label. But the pod annotation was present →
+webhook fired anyway → `istio-proxy` sidecar injected into `virt-launcher` pod.
+
+The `istio-proxy` container failed its readiness probe on port 15021 (connection refused).
+This is the D-008 hypothesis confirmed: KubeVirt masquerade iptables + Envoy iptables
+setup conflicted, preventing Envoy from starting cleanly. Pod stayed `1/2` → endpoint
+marked not ready → Service had no ready backends → Route returned 503.
+
+### Fix applied
+
+**deploy/step1-vm/vm.yaml**: Removed `sidecar.istio.io/inject: "true"` from the VMI
+template annotations. Replaced with a detailed comment explaining WHY it must not be
+present in step1 and how injection is properly triggered in step2 (namespace label only).
+
+Kept `traffic.sidecar.istio.io/kubevirtInterfaces: k6t-eth0` — it is a no-op in step1
+(no sidecar = annotation is ignored), and it's necessary in step2 to tell Envoy not to
+set up conflicting iptables interception rules on the KubeVirt virtual NIC.
+
+**deploy/step1-vm/DEBUG.md**: New file. Step-by-step oc runbook for diagnosing 503s,
+unexpected sidecar injection, cloud-init timing, and step2 sidecar readiness.
+
+### How to apply the fix on a live cluster
+
+```bash
+oc apply -k deploy/step1-vm/
+oc delete vmi eshoplite-vm -n eshoplite-vm
+# KubeVirt recreates the VMI automatically (VM.spec.running: true)
+# New pod will be 1/1 (no sidecar in step1) → endpoints become ready → Route works
+```
+
+### Learnings
+
+- **`sidecar.istio.io/inject: "true"` on a pod template is NOT belt-and-suspenders.** 
+  It is a primary injection trigger that fires regardless of namespace label.
+  "Belt-and-suspenders" means two mechanisms that individually would produce the same result.
+  Pod annotation + namespace label are redundant only if the namespace label is ALWAYS present.
+  In a phased demo where OSSM is added later, the annotation on the base manifest is a liability.
+
+- **Injection for KubeVirt VMs in a phased demo must be driven by namespace label alone.**
+  The pod template in the base vm.yaml must never carry `sidecar.istio.io/inject: "true"`.
+  The step2 mesh-config namespace patch (`istio-injection: enabled`) is the sole trigger.
+  VM must be bounced once after that label is applied.
+
+- **`traffic.sidecar.istio.io/kubevirtInterfaces: k6t-eth0` is safe to keep in step1.**
+  Annotations that Istio reads post-injection are ignored when no sidecar is present.
+  Keeping it in the base manifest means step2 inherits it automatically — no separate patch needed.

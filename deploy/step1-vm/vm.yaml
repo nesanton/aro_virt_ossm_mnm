@@ -65,9 +65,25 @@ spec:
         app: eshoplite-vm
         demo-step: step1-vm
       annotations:
-        # Inject sidecar — belt-and-suspenders alongside istio-injection=enabled on namespace
-        sidecar.istio.io/inject: "true"
-        # Tell Istio about the KubeVirt virtual NIC so it is not accidentally intercepted
+        # DO NOT add sidecar.istio.io/inject: "true" here.
+        #
+        # The Istio mutating webhook fires on EITHER the namespace label
+        # (istio-injection=enabled) OR the pod annotation. In step1 this
+        # namespace intentionally has no mesh label, so placing inject:
+        # "true" here causes the webhook to inject istio-proxy anyway —
+        # the sidecar's readiness probe (port 15021) then fails because
+        # Envoy cannot start cleanly against KubeVirt masquerade iptables,
+        # the pod stays 1/2, the endpoint is not ready, and the Route
+        # returns 503. (Root-cause confirmed: D-008 session.)
+        #
+        # Sidecar injection for step2 is driven entirely by the namespace
+        # label applied by deploy/step2-ossm/mesh-config/namespace-patch.yaml.
+        # That label is the ONLY injection trigger needed.
+        #
+        # Keep the kubevirtInterfaces annotation here — it is a no-op when
+        # no sidecar is present, but once step2 injects the sidecar it tells
+        # Envoy which virtual NIC belongs to KubeVirt so it does not set up
+        # conflicting iptables interception rules on k6t-eth0.
         traffic.sidecar.istio.io/kubevirtInterfaces: k6t-eth0
     spec:
       domain:
