@@ -7,6 +7,7 @@ The `step2-ossm-operators` ArgoCD Application installs:
 - **Sail Operator** (OSSM 3.x / Istio v1.28) + `istiod` + Istio CNI DaemonSet
 - **ZTunnel** DaemonSet (one pod per node — ambient L4 capture)
 - **Kiali** (traffic topology UI)
+- **Prometheus** (metrics backend for Kiali graph — scraped from ztunnel/istiod)
 - **Tempo** (distributed tracing backend, in-memory)
 
 These stay running permanently. They do not affect app traffic until the mesh is enabled.
