@@ -65,7 +65,9 @@ spec:
         app: eshoplite-vm
         demo-step: step1-vm
       annotations:
-        traffic.sidecar.istio.io/excludeInboundPorts: "5000"
+        # Inject sidecar — belt-and-suspenders alongside istio-injection=enabled on namespace
+        sidecar.istio.io/inject: "true"
+        # Tell Istio about the KubeVirt virtual NIC so it is not accidentally intercepted
         traffic.sidecar.istio.io/kubevirtInterfaces: k6t-eth0
     spec:
       domain:

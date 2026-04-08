@@ -9,6 +9,44 @@
 - iptables-save and nft are unavailable inside virt-launcher → you cannot inspect or fix the state from inside the container.
 - **This is a fundamental limitation, not a configuration bug.** Do not attempt ambient mesh on KubeVirt masquerade until upstream Istio adds explicit KubeVirt support.
 
+---
+
+## Session 2026-04-08 (Naomi) — Repo Audit: Align to OSSM 3.x Sidecar Recipe
+
+### Learnings
+
+**Ambient artifacts audited and removed**
+- No `ztunnel-impersonate-rbac.yaml` file existed in `deploy/step2-ossm/operators/` — already removed in a prior cleanup pass. Kustomization was clean.
+- No `ambient.istio.io/*` labels or OSSM 2.x artifacts (`ServiceMeshControlPlane`, `ServiceMeshMemberRoll`, `maistra.io`) found anywhere in the deploy/ tree.
+- The only stale ambient references were in prose/comments: `DEMO.md`, `bootstrap.sh`, `kustomization.yaml` comment, and `application.yaml` comment.
+
+**vm.yaml — sidecar annotation alignment**
+- `traffic.sidecar.istio.io/excludeInboundPorts: "5000"` was an ambient workaround (tells ztunnel to skip port 5000). Removed — in sidecar mode, Envoy correctly intercepts port 5000 inbound and DNAT to the VM guest still fires.
+- `traffic.sidecar.istio.io/kubevirtInterfaces: k6t-eth0` kept — this is a valid Istio annotation that tells the proxy about KubeVirt virtual NICs to avoid intercepting guest-internal traffic.
+- Added `sidecar.istio.io/inject: "true"` to `spec.template.metadata.annotations` — belt-and-suspenders alongside `istio-injection: enabled` namespace label.
+
+**DEMO.md — full rewrite to sidecar mode**
+- Removed all references to ztunnel, ambient labels, "no VM restart needed" claim.
+- Added explicit VM restart step with `oc delete vmi` command.
+- Added troubleshooting hint to verify `istio-proxy` container is present in pod.
+- Added "Why sidecar mode" section explaining the KubeVirt+ztunnel incompatibility.
+- `traffic.sidecar.istio.io/excludeInboundPorts: "5000"` removed from explanatory text — Kiali URL hardcode replaced with `oc get route` command.
+
+**bootstrap.sh — sidecar mode comments corrected**
+- "Ambient Mode" → "Sidecar Mode" in STEP 2 header.
+- Toggle comment corrected: replaced ambient/ztunnel language with sidecar restart instruction.
+
+**namespace-patch.yaml and mesh-config kustomization — already correct**
+- `istio-injection: "enabled"` label was already present and correct for sidecar mode. No changes needed.
+
+**app-project.yaml — destinations correct**
+- Targets `eshoplite-vm`, `istio-system`, `tracing-system`, `openshift-operators`. All required. No `openshift-gitops` destination needed (ArgoCD Applications are applied via bootstrap `oc apply`, not synced by ArgoCD itself).
+
+**OSSM 3.x operator manifests — clean**
+- `istio.yaml`: `sailoperator.io/v1`, `kind: Istio`, `profile: default` ✅
+- `istiocni.yaml`: correct OSSM 3.x format ✅
+- No OSSM 2.x artifacts in any operator manifest ✅
+
 **Sidecar injection IS compatible with KubeVirt masquerade**
 - Envoy intercepts inbound, re-injects to pod-ip:5000, KubeVirt DNAT then fires correctly → guest is reached.
 - Istio CNI must be enabled to avoid NET_ADMIN / SCC conflict with virt-launcher.

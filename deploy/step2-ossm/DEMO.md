@@ -5,16 +5,15 @@
 The `step2-ossm-operators` ArgoCD Application installs:
 
 - **Sail Operator** (OSSM 3.x / Istio v1.28) + `istiod` + Istio CNI DaemonSet
-- **ZTunnel** DaemonSet (one pod per node — ambient L4 capture)
 - **Kiali** (traffic topology UI)
-- **Prometheus** (metrics backend for Kiali graph — scraped from ztunnel/istiod)
+- **Prometheus** (metrics backend for Kiali graph)
 - **Tempo** (distributed tracing backend, in-memory)
 
 These stay running permanently. They do not affect app traffic until the mesh is enabled.
 
 **Kiali URL:**
 ```
-https://kiali-istio-system.apps.hkw79nhv.swedencentral.aroapp.io
+oc get route kiali -n istio-system -o jsonpath='{.spec.host}'
 ```
 
 ---
@@ -23,8 +22,8 @@ https://kiali-istio-system.apps.hkw79nhv.swedencentral.aroapp.io
 
 ### Show "before mesh" state
 
-The app is running. The `eshoplite-vm` namespace has no ambient label. Kiali shows
-nothing for `eshoplite-vm` (no enrolled workloads). Route and app work normally.
+The app is running. The `eshoplite-vm` namespace has no `istio-injection` label. Kiali
+shows nothing for `eshoplite-vm` (no enrolled workloads). Route and app work normally.
 
 ### Enable the mesh (before → after)
 
@@ -41,21 +40,29 @@ oc patch application step2-ossm-config -n openshift-gitops \
   -p '{"operation":{"sync":{}}}' --type merge
 
 # Verify the label landed:
-oc get namespace eshoplite-vm --show-labels | grep ambient
+oc get namespace eshoplite-vm --show-labels | grep istio-injection
 ```
 
-Or in the **ArgoCD UI**: click `+ New App` → paste `deploy/step2-ossm/mesh-config` as
-the path, or sync the pre-created `step2-ossm-config` application if it already exists.
+Or in the **ArgoCD UI**: sync the pre-created `step2-ossm-config` application.
 
-**Effect:** ArgoCD adds `istio.io/dataplane-mode: ambient` to the `eshoplite-vm`
-namespace. **No VM restart needed.** ZTunnel begins capturing traffic immediately.
+**Effect:** ArgoCD adds `istio-injection: enabled` to the `eshoplite-vm` namespace.
 
-After ~30 seconds, open Kiali — the `eshoplite` service node will appear.
-Generate some traffic to populate the graph:
+> **⚠️ Sidecar mode requires a VM restart.** The Envoy sidecar is injected into the
+> `virt-launcher` pod at pod creation time. After the namespace label lands, restart
+> the VM to trigger sidecar injection:
+> ```bash
+> oc delete vmi eshoplite-vm -n eshoplite-vm
+> # The VirtualMachine controller recreates the VMI automatically.
+> oc wait vmi/eshoplite-vm -n eshoplite-vm --for=condition=Ready --timeout=120s
+> ```
+
+After ~30 seconds with the sidecar running, open Kiali — the `eshoplite` service node
+will appear. Generate some traffic to populate the graph:
 
 ```bash
+ROUTE=$(oc get route eshoplite -n eshoplite-vm -o jsonpath='{.spec.host}')
 for i in $(seq 1 20); do
-  curl -sk https://eshoplite-eshoplite-vm.apps.hkw79nhv.swedencentral.aroapp.io -o /dev/null
+  curl -sk "https://${ROUTE}" -o /dev/null
   sleep 1
 done
 ```
@@ -69,8 +76,9 @@ sed "s|YOUR_ORG/aro-ossm-ghcp.git|${GIT_REPO_ORG}|g" \
 
 Or in the **ArgoCD UI**: delete the `step2-ossm-config` application (with cascade prune).
 
-**Effect:** ArgoCD removes the ambient label from `eshoplite-vm`. ZTunnel stops
-capturing traffic for that namespace. App continues to work — mesh is fully transparent.
+**Effect:** ArgoCD removes the `istio-injection` label from `eshoplite-vm`. Existing
+sidecar containers remain in the running VMI until the next VM restart. App continues
+to work — mesh is fully transparent.
 
 ---
 
@@ -83,21 +91,30 @@ capturing traffic for that namespace. App continues to work — mesh is fully tr
 
 ---
 
-## Ambient vs sidecar — why ambient
+## Why sidecar mode (not ambient)
 
-- **No VM restart required** — ztunnel captures at the node CNI layer, no sidecar to inject
-- **No SCC conflicts** — no `istio-init` init-container competing with `virt-launcher`'s privileges
-- Tradeoff: Kiali ambient topology in v2.x is slightly less detailed than sidecar mode,
-  but sufficient for the demo story
+- **KubeVirt masquerade + ztunnel = incompatible** — both write conflicting iptables
+  `PREROUTING` rules in the same pod netns; traffic intercept ordering is
+  non-deterministic and Waypoint HBONE tunnels fail with 503.
+- **Istio CNI removes the SCC conflict** — no `istio-init` init-container competing
+  with `virt-launcher`'s `NET_ADMIN` privilege. Istio CNI sets up iptables from the
+  host side. This is the required mode for OpenShift Virt on ARO.
+- **Full L7 Kiali telemetry** — sidecar mode exposes request metrics, mTLS status,
+  and distributed traces in Kiali just as well as ambient for this demo.
+- Tradeoff: VM must be restarted once after namespace label is applied for injection.
 
 ---
 
 ## Troubleshooting
 
 **Kiali graph empty after enabling mesh:**
-Kiali needs live traffic. Run the curl loop above.
+Kiali needs live traffic. Run the curl loop above. Also confirm the sidecar is injected:
+```bash
+oc get pod -n eshoplite-vm -l app=eshoplite-vm -o jsonpath='{.items[0].spec.containers[*].name}'
+# should include: compute  guest-console-log  istio-proxy
+```
 Also check: `oc get namespace eshoplite-vm -o jsonpath='{.metadata.labels}'` — should
-show `istio.io/dataplane-mode: ambient`.
+show `istio-injection: enabled`.
 
 **Check ztunnel is capturing the namespace:**
 ```bash

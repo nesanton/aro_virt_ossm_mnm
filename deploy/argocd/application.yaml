@@ -67,4 +67,4 @@ spec:
 
   # namespace.yaml is removed from step1-vm/kustomization.yaml — ArgoCD creates
   # the namespace via CreateNamespace=true. This avoids SSA manager conflicts
-  # with step2-ossm-config which adds the ambient mesh label to the namespace.
+  # with step2-ossm-config which adds the istio-injection label to the namespace.
