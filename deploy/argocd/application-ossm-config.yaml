@@ -31,7 +31,7 @@ spec:
   project: eshoplite-demo
 
   source:
-    repoURL: "https://github.com/YOUR_ORG/aro-ossm-ghcp.git"
+    repoURL: "https://github.com/nesanton/aro_virt_ossm_mnm.git"
     targetRevision: main
     path: deploy/step2-ossm/mesh-config
 

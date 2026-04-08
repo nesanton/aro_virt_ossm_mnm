@@ -31,13 +31,38 @@ spec:
   project: eshoplite-demo
 
   source:
-    repoURL: "https://github.com/YOUR_ORG/aro-ossm-ghcp.git"
+    repoURL: "https://github.com/nesanton/aro_virt_ossm_mnm.git"
     targetRevision: main
     path: deploy/step2-ossm/operators
 
   destination:
     server: https://kubernetes.default.svc
     namespace: istio-system
+
+  # Ignore operator-injected defaults that are not in our Git manifests.
+  # These fields are added by the respective operators at runtime and do not
+  # represent drift — the operators are managing them correctly.
+  ignoreDifferences:
+    # Sail Operator sets updateStrategy.type=InPlace as a default on Istio CRs
+    - group: sailoperator.io
+      kind: Istio
+      jsonPointers:
+        - /spec/updateStrategy
+    # Sail Operator adds its own finalizer to IstioCNI for cleanup ordering
+    - group: sailoperator.io
+      kind: IstioCNI
+      jsonPointers:
+        - /metadata/finalizers
+    # Kiali Operator injects spec.version with the installed channel default
+    - group: kiali.io
+      kind: Kiali
+      jsonPointers:
+        - /spec/version
+    # Tempo Operator injects spec.timeout defaulting to 0s
+    - group: tempo.grafana.com
+      kind: TempoMonolithic
+      jsonPointers:
+        - /spec/timeout
 
   syncPolicy:
     automated:

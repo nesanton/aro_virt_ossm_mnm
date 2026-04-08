@@ -11,9 +11,6 @@
 #                         (belt-and-suspenders: namespace.yaml also
 #                          declares it declaratively)
 #
-# BEFORE applying: replace YOUR_ORG with your GitHub org/user.
-# If the repo is private, register the repo credentials in ArgoCD
-# first (see bootstrap.sh for how to do this via argocd CLI).
 # ------------------------------------------------------------
 apiVersion: argoproj.io/v1alpha1
 kind: Application
@@ -33,8 +30,7 @@ spec:
   project: eshoplite-demo
 
   source:
-    # !! UPDATE THIS: replace with your actual repo URL !!
-    repoURL: "https://github.com/YOUR_ORG/aro-ossm-ghcp.git"
+    repoURL: "https://github.com/nesanton/aro_virt_ossm_mnm.git"
     # Track main branch — demo content lives here
     targetRevision: main
     # Path to the kustomization.yaml that lists all step1 resources
