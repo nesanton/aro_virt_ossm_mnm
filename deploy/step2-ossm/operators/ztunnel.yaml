@@ -1,5 +1,5 @@
 apiVersion: sailoperator.io/v1
-kind: Istio
+kind: ZTunnel
 metadata:
   name: default
   annotations:
@@ -8,4 +8,3 @@ metadata:
 spec:
   version: v1.28-latest
   namespace: istio-system
-  profile: ambient

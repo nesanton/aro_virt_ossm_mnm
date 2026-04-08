@@ -31,5 +31,6 @@ resources:
   - tempo-operator-subscription.yaml # wave 0: Tempo Operator
   - istiocni.yaml                    # wave 1: IstioCNI (ambient CNI plugin)
   - istio.yaml                       # wave 1: Istio control plane (ambient profile)
+  - ztunnel.yaml                     # wave 1: ZTunnel DaemonSet (required for ambient)
   - tempo-monolithic.yaml            # wave 1: TempoMonolithic (in-memory, no external storage)
   - kiali.yaml                       # wave 1: Kiali (topology + tracing UI)

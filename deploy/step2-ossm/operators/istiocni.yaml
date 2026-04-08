@@ -1,4 +1,4 @@
-apiVersion: sailoperator.io/v1alpha1
+apiVersion: sailoperator.io/v1
 kind: IstioCNI
 metadata:
   name: default
@@ -6,6 +6,6 @@ metadata:
     argocd.argoproj.io/sync-wave: "1"
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
-  version: v1.24.3
+  version: v1.28-latest
   namespace: istio-system
   profile: ambient
