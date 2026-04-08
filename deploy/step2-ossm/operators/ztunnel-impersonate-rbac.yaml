@@ -1,11 +1,15 @@
 ---
 # Sail Operator on ARO generates a minimal ztunnel ClusterRole that only
-# grants securitycontextconstraints/use. Missing: the impersonate verb on
-# serviceaccounts, which istiod's serverca component requires to issue mTLS
-# certificates on behalf of workload service accounts (ambient SPIFFE identity).
+# grants securitycontextconstraints/use. Missing permissions for ambient
+# workload identity (SPIFFE cert signing):
 #
-# Without this, ztunnel logs: "request impersonation authentication failure"
-# and cannot complete HBONE inbound tunnels for enrolled workloads.
+#  1. serviceaccounts/token create — ztunnel calls TokenRequest for each
+#     workload SA (e.g. eshoplite-vm/default) to obtain a token it sends
+#     to istiod as proof of identity. Without this istiod responds with
+#     "request impersonation authentication failure".
+#
+#  2. serviceaccounts impersonate — belt-and-suspenders for clusters that
+#     use Kubernetes HTTP impersonation headers path.
 #
 # This is applied in wave 1 (after Sail Operator installs the ztunnel SA).
 apiVersion: rbac.authorization.k8s.io/v1
@@ -16,6 +20,9 @@ metadata:
     argocd.argoproj.io/sync-wave: "1"
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 rules:
+- apiGroups: [""]
+  resources: ["serviceaccounts/token"]
+  verbs: ["create"]
 - apiGroups: [""]
   resources: ["serviceaccounts"]
   verbs: ["impersonate"]

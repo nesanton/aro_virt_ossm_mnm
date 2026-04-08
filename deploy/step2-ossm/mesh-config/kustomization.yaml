@@ -4,7 +4,7 @@
 # ArgoCD Application: step2-ossm-config (TOGGLEABLE)
 #
 # This application is the "before/after" toggle in the demo:
-#   Sync   → adds istio.io/dataplane-mode=ambient to eshoplite-vm namespace
+#   Sync   → adds istio-injection=enabled to eshoplite-vm namespace
 #   Delete → ArgoCD prune removes the label (mesh enrollment revoked)
 #
 # Manual sync is intentional — do NOT enable automated sync on this app.
@@ -14,4 +14,4 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - namespace-patch.yaml    # Namespace label: istio.io/dataplane-mode=ambient
+  - namespace-patch.yaml              # Namespace label: istio-injection=enabled (sidecar injection)
