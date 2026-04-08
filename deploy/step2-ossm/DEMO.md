@@ -35,6 +35,13 @@ oc login ${ARO_API%/} -u ${ARO_ADMIN_USER} -p ${ARO_ADMIN_PASSWORD}
 GIT_REPO_ORG=$(echo "$GIT_REPO_URL" | sed 's|https://github.com/||')
 sed "s|YOUR_ORG/aro-ossm-ghcp.git|${GIT_REPO_ORG}|g" \
   deploy/argocd/application-ossm-config.yaml | oc apply -f -
+
+# The app has no automated sync — trigger it manually:
+oc patch application step2-ossm-config -n openshift-gitops \
+  -p '{"operation":{"sync":{}}}' --type merge
+
+# Verify the label landed:
+oc get namespace eshoplite-vm --show-labels | grep ambient
 ```
 
 Or in the **ArgoCD UI**: click `+ New App` → paste `deploy/step2-ossm/mesh-config` as
