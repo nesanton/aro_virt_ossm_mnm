@@ -64,13 +64,16 @@ spec:
         # which is how the Service selector finds this VM.
         app: eshoplite-vm
         demo-step: step1-vm
+        # Opt this virt-launcher pod out of ztunnel inbound redirection.
+        # KubeVirt masquerade NATs port 5000 through QEMU userspace — ztunnel
+        # intercepts at the pod netns boundary and cannot reach QEMU's NAT.
+        # traffic.sidecar.istio.io/excludeInboundPorts is not honoured by
+        # istio-cni in ambient mode; the definitive ambient opt-out is this label.
+        # Kiali L4 telemetry for outbound traffic from the VM remains visible.
+        ambient.istio.io/redirection: disabled
       annotations:
-        # KubeVirt masquerade networking: port 5000 is NAT'd through QEMU userspace,
-        # not bound directly in the pod netns. Ztunnel (ambient mesh) intercepts at
-        # the pod netns boundary and cannot reach QEMU's internal NAT.
-        # Exclude port 5000 from ztunnel inbound capture so traffic flows through
-        # QEMU unmodified. All other traffic (outbound visibility, mTLS) is unaffected.
         traffic.sidecar.istio.io/excludeInboundPorts: "5000"
+        traffic.sidecar.istio.io/kubevirtInterfaces: k6t-eth0
     spec:
       domain:
         cpu:
