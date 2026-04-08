@@ -40,7 +40,7 @@
 
 ## Model
 
-- **Preferred:** claude-sonnet-4.5
+- **Preferred:** claude-sonnet-4.6
 - **Rationale:** Writing YAML/manifests and infrastructure configuration — quality matters.
 - **Fallback:** Standard chain.
 

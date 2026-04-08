@@ -38,7 +38,7 @@
 
 ## Model
 
-- **Preferred:** claude-haiku-4.5
+- **Preferred:** claude-haiku-4.6
 - **Rationale:** Writing and storytelling — not code. Cost-efficient.
 - **Fallback:** claude-sonnet-4.5 for complex narrative architecture.
 

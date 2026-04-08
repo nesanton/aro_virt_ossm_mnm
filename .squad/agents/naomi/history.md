@@ -1,3 +1,32 @@
+## Session 2026-04-08 (Naomi) — Ambient Mesh Post-Mortem
+
+### Learnings
+
+**KubeVirt + ztunnel ambient mode: architecturally incompatible (current state)**
+- KubeVirt masquerade NIC binding writes iptables `PREROUTING DNAT` rules inside the pod netns to forward `pod-ip:5000 → VM-guest:5000`. No process listens on port 5000 in the pod netns itself.
+- ztunnel "inpod" ambient mode ALSO writes iptables `PREROUTING` rules to redirect all traffic to ztunnel port 15006. These two rulesets conflict in the same netns — ordering is non-deterministic.
+- Even with redirect disabled on virt-launcher, ztunnel has no HBONE listener (15008) → Waypoint cannot establish HBONE tunnel → 503.
+- iptables-save and nft are unavailable inside virt-launcher → you cannot inspect or fix the state from inside the container.
+- **This is a fundamental limitation, not a configuration bug.** Do not attempt ambient mesh on KubeVirt masquerade until upstream Istio adds explicit KubeVirt support.
+
+**Sidecar injection IS compatible with KubeVirt masquerade**
+- Envoy intercepts inbound, re-injects to pod-ip:5000, KubeVirt DNAT then fires correctly → guest is reached.
+- Istio CNI must be enabled to avoid NET_ADMIN / SCC conflict with virt-launcher.
+- VM must be bounced once after namespace label is applied (`istio-injection: enabled`) for sidecar to be injected.
+- No Waypoint needed. Full L7 Kiali telemetry works with sidecar alone.
+
+**`CA_TRUSTED_NODE_ACCOUNTS` fix is correct and required regardless of mode**
+- Sail Operator deploys ztunnel in `istio-system`, but the ambient profile template defaults this to `kube-system/ztunnel`. Must override in `istio.yaml`.
+- This fix should be kept even when switching back to sidecar mode (it was also a correct upstream fix).
+
+**Ambient experiment produced one useful artifact**
+- The `CA_TRUSTED_NODE_ACCOUNTS` fix. Everything else from the ambient session (Waypoint CR, ambient namespace labels, ztunnel RBAC workaround) must be reverted.
+
+**Decisions**
+- Decision memo written to `.squad/decisions/inbox/naomi-ambient-assessment.md` — awaiting anesterov confirmation on Path B (revert to sidecars).
+
+---
+
 ## Session 2026-04-07 (Naomi) — Round 2: setup-app.sh succeeded
 
 ### setup-app.sh — SUCCESS
