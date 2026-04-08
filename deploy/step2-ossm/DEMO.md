@@ -29,7 +29,7 @@ nothing for `eshoplite-vm` (no enrolled workloads). Route and app work normally.
 
 ```bash
 source .env
-oc login ${ARO_API%/} -u ${ARO_ADMIN_USER} -p ${ARO_ADMIN_PASSWORD} --insecure-skip-tls-verify=true
+oc login ${ARO_API%/} -u ${ARO_ADMIN_USER} -p ${ARO_ADMIN_PASSWORD}
 
 GIT_REPO_ORG=$(echo "$GIT_REPO_URL" | sed 's|https://github.com/||')
 sed "s|YOUR_ORG/aro-ossm-ghcp.git|${GIT_REPO_ORG}|g" \
