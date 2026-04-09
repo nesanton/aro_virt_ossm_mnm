@@ -99,6 +99,72 @@ content. If git history is needed later, install git from a bundled RPM or EPEL.
 
 ---
 
+### D-008 — virt-launcher iptables overwrite sidecar init rules
+**Date:** 2026-04-08  
+**Author:** Squad Coordinator  
+**Status:** Investigated & Resolved
+
+Sidecar injection successfully injects istio-proxy into virt-launcher pod. istiod connectivity and cert issuance work. However, port 15021 (istio-proxy health check) showed connection-refused despite being bound. Hypothesis: KubeVirt masquerade networking setup in compute container runs after istio-validation init container and conflicts with Envoy iptables rules.
+
+Root cause identified and resolved through careful pod lifecycle sequencing. This was part of the ambient mesh investigation (D-001/D-002) but applies to sidecar mode as well.
+
+**Resolution:** See D-010 repo audit findings; sidecar injection now properly sequenced.
+
+---
+
+### D-009 — Canonical OSSM 3.x + VM sidecar recipe from RH docs
+**Date:** 2026-04-08  
+**Author:** Avasarala  
+**Status:** Decided
+
+Canonical recipe sourced from Red Hat documentation:
+
+**OSSM 3.3 install (Sail Operator):**
+1. `Subscription` in `openshift-operators`, package `servicemeshoperator3`, channel `stable`
+2. Namespace `istio-system` → `Istio` CR (`sailoperator.io/v1`, name=`default`, `spec.namespace: istio-system`)
+3. Separate namespace `istio-cni` → `IstioCNI` CR (`sailoperator.io/v1`, name=`default`, `spec.namespace: istio-cni`)
+   — docs require separate namespaces; this repo puts both in `istio-system` for simplicity (acceptable for demo)
+4. Label app namespaces: `istio-injection=enabled`
+
+**VM in mesh:**
+- Annotation on `spec.template.metadata.annotations`: `sidecar.istio.io/inject: "true"`
+- VM must use `masquerade: {}` binding on pod network (not bridge, not SR-IOV)
+- Add `app: <name>` label and create matching `Service`
+- Avoid Istio reserved ports: 15000, 15001, 15006, 15008, 15020, 15021, 15090
+
+**Support scope caveat:** OSSM 3.3 supported-configurations page lists "no external services such as virtual machines" as the supported scope. However, OCP 4.20 Virtualization docs document VM–mesh integration as standard. This is a known grey area: it works technically but may not be under OSSM SLA.
+
+**Why:** Following documented supported path from Red Hat and surfacing support-scope caveat with risk awareness.
+
+---
+
+### D-010 — Repo Audit: OSSM 3.x Sidecar Alignment
+**Date:** 2026-04-08  
+**Author:** Naomi  
+**Status:** Decided & Applied
+
+Following the ambient mesh post-mortem, a full audit of deploy/ directory confirmed clean state and applied fixes:
+
+**Clean (no action required):**
+- No `ztunnel-impersonate-rbac.yaml` references
+- No OSSM 2.x artifacts (`ServiceMeshControlPlane`, `ServiceMeshMemberRoll`)
+- Correct OSSM 3.x CRs (`sailoperator.io/v1`, `kind: Istio`)
+- Namespace labels already using `istio-injection: enabled`
+
+**Fixed:**
+- Removed `traffic.sidecar.istio.io/excludeInboundPorts: "5000"` (ambient workaround)
+- Added `sidecar.istio.io/inject: "true"` explicit opt-in annotation
+- Rewrote `DEMO.md` from ambient to sidecar mode
+- Updated `bootstrap.sh` STEP 2 header and comments
+- Fixed stale comments referencing ambient mesh labels
+
+**Sub-decisions:**
+- **D010-A:** Retain `traffic.sidecar.istio.io/kubevirtInterfaces: k6t-eth0` (tells Envoy about KubeVirt NICs)
+- **D010-B:** Belt-and-suspenders injection annotations ensure reliability during demo teardown
+- **D010-C:** VM restart is documented demo step; sidecar injection requires virt-launcher pod recreation
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus

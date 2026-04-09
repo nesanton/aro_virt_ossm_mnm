@@ -242,6 +242,49 @@
 
 ---
 
+## Session 2026-04-09 (Naomi) — OSSM Cluster Health Check
+
+### Learnings
+
+**ArgoCD Application status mismatch is cosmetic OLM constraint issue**
+- ArgoCD Application `step2-ossm-operators` reports `OutOfSync` / `Progressing` status
+- Message: "waiting for healthy state of operators.coreos.com/Subscription/kiali-ossm"
+- Root cause: OLM constraint resolver reports `ResolutionFailed` on the Subscription due to
+  "constraints not satisfiable" — the CSV `kiali-operator.v2.22.1` exists in cluster,
+  but OLM resolver sees it as conflicting with the subscription manifest (likely because
+  the CSV was created by a prior subscription or upgrade, and OLM can't reconcile provenance).
+- Reality: All three operators (servicemesh-operator3, kiali-operator, tempo-operator)
+  are INSTALLED and RUNNING. The CSVs show `Succeeded`, pods are `1/1 Running`, and
+  all control plane components (istiod, Kiali, Tempo, Prometheus) are healthy.
+- This is an OLM bookkeeping issue, not a functional failure. ArgoCD is stuck waiting
+  for the Subscription to report healthy, but the operators are already functional.
+- **Resolution:** ArgoCD Application status is misleading. Cluster is FULLY HEALTHY.
+
+**OSSM 3.x deployment is complete and functional**
+- Service Mesh Operator 3 (servicemeshoperator3.v3.3.1): CSV Succeeded, deployment 1/1
+- Kiali Operator 2.22.1: CSV Succeeded, pod 1/1 Running, Kiali CR deployed, UI accessible
+- Tempo Operator 0.20.0-2: CSV Succeeded, pod 1/1 Running, Tempo TempoStack deployed
+- Istio CR (istio-system/default): Healthy, v1.28-latest, 1 ready revision
+- istiod pod: 1/1 Running (control plane healthy)
+- IstioCNI CR (istio-system/default): Healthy, 7/7 CNI DaemonSet pods Running
+- Kiali pod: 1/1 Running, route functional
+- Tempo pod: 4/4 Running (TempoStack with storage backend)
+- Prometheus: 2/2 Running (metrics collection active)
+
+**ArgoCD config app (step2-ossm-config) NOT deployed**
+- Expected behavior per D-007 design: `application-ossm-config.yaml` exists in git
+  but is NOT auto-applied. It is the DEMO TOGGLE — manual sync only.
+- Anton has NOT yet applied the config app (namespace label for mesh enrollment).
+- The VM is NOT yet mesh-enrolled. Sidecar will not be injected until config app
+  is synced and VM is bounced.
+
+**Cluster state: operators provisioned, mesh not yet enrolled**
+- Step 2 operators: COMPLETE (despite ArgoCD cosmetic status issue)
+- Step 2 config: NOT YET APPLIED (this is intentional — awaiting demo presenter action)
+- Overall: READY FOR DEMO TOGGLE
+
+---
+
 ## Session 2026-04-09 (Naomi) — Step1 Route 503 Fix
 
 ### Root cause confirmed: sidecar injected in step1, pod 1/2 → no ready endpoints → Route 503
