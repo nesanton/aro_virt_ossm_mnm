@@ -1,0 +1,33 @@
+# ------------------------------------------------------------
+# Istio VirtualService — eshoplite
+#
+# Routes all HTTP traffic arriving via eshoplite-gateway to the
+# eshoplite ClusterIP service (port 80 → targetPort 5000) in the
+# eshoplite-vm namespace.
+#
+# hosts: ["*"] matches any Host header forwarded by the gateway.
+# Adjust to a specific FQDN once the Azure LB IP is known.
+#
+# SkipDryRunOnMissingResource: see gateway.yaml — same rationale.
+# ------------------------------------------------------------
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: eshoplite
+  namespace: eshoplite-vm
+  labels:
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step2-ossm
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - eshoplite-gateway
+  http:
+    - route:
+        - destination:
+            host: eshoplite
+            port:
+              number: 80

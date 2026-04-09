@@ -15,3 +15,5 @@ kind: Kustomization
 
 resources:
   - namespace-patch.yaml              # Namespace label: istio-injection=enabled (sidecar injection)
+  - gateway.yaml                      # Istio Gateway: eshoplite-gateway (HTTP/80, host *)
+  - virtualservice.yaml               # Istio VirtualService: eshoplite → eshoplite svc:80

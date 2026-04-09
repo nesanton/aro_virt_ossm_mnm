@@ -1,0 +1,88 @@
+# ------------------------------------------------------------
+# Istio Ingress Gateway — gateway injection pattern
+#
+# The Sail operator (OSSM 3.x) does not ship an IstioIngressGateway CRD,
+# so we use the upstream gateway-injection approach instead:
+#   - A Deployment with image: auto + inject.istio.io/templates: gateway
+#   - istiod injects the real proxy image at pod admission time
+#   - Istio CNI handles NET_ADMIN (no privilege escalation needed on ARO)
+#
+# sync-wave: "2" — applied after the Istio control plane (wave 1) is ready.
+# SkipDryRunOnMissingResource guards against missing CRDs on first sync.
+#
+# Labels/selector:
+#   app: istio-ingressgateway
+#   istio: ingressgateway
+# ------------------------------------------------------------
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-system
+  labels:
+    app: istio-ingressgateway
+    istio: ingressgateway
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step2-ossm
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-system
+  labels:
+    app: istio-ingressgateway
+    istio: ingressgateway
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step2-ossm
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: istio-ingressgateway
+      istio: ingressgateway
+  template:
+    metadata:
+      labels:
+        app: istio-ingressgateway
+        istio: ingressgateway
+        sidecar.istio.io/inject: "true"
+        app.kubernetes.io/part-of: aro-ossm-demo
+        demo-step: step2-ossm
+      annotations:
+        inject.istio.io/templates: gateway
+    spec:
+      serviceAccountName: istio-ingressgateway
+      containers:
+        - name: istio-proxy
+          image: auto
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-system
+  labels:
+    app: istio-ingressgateway
+    istio: ingressgateway
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step2-ossm
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  type: LoadBalancer
+  selector:
+    app: istio-ingressgateway
+    istio: ingressgateway
+  ports:
+    - name: http2
+      port: 80
+      targetPort: 8080
+    - name: https
+      port: 443
+      targetPort: 8443

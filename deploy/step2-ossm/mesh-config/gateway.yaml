@@ -1,0 +1,33 @@
+# ------------------------------------------------------------
+# Istio Gateway — eshoplite-gateway
+#
+# Binds the Istio ingress gateway pod (selector: istio: ingressgateway)
+# to accept HTTP traffic on port 80 for any host ("*").
+#
+# Paired with the VirtualService (virtualservice.yaml) to route traffic
+# to the eshoplite ClusterIP service in eshoplite-vm.
+#
+# SkipDryRunOnMissingResource: networking.istio.io CRDs are installed by
+# the Istio control plane (wave 1 in operators/). On a fresh cluster the
+# CRD may not yet exist when ArgoCD first syncs this app.
+# ------------------------------------------------------------
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: eshoplite-gateway
+  namespace: eshoplite-vm
+  labels:
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step2-ossm
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*"
