@@ -23,3 +23,5 @@ metadata:
     app.kubernetes.io/part-of: aro-ossm-demo
     demo-step: step1-vm
     istio-injection: "enabled"
+    istio-discovery: enabled
+    istio.io/rev: default
