@@ -64,7 +64,6 @@ spec:
         # which is how the Service selector finds this VM.
         app: eshoplite-vm
         demo-step: step1-vm
-      annotations:
     spec:
       domain:
         cpu:
