@@ -12,11 +12,21 @@ spec:
   ttlSecondsAfterFinished: 300
   template:
     spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       restartPolicy: Never
       serviceAccountName: openshift-gitops-argocd-application-controller
       containers:
         - name: oc
           image: quay.io/openshift/origin-cli:4.16
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
           command:
             - /bin/sh
             - -ec
