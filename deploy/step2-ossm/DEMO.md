@@ -45,7 +45,9 @@ oc get namespace eshoplite-vm --show-labels | grep istio-injection
 
 Or in the **ArgoCD UI**: sync the pre-created `step2-ossm-config` application.
 
-**Effect:** ArgoCD adds `istio-injection: enabled` to the `eshoplite-vm` namespace.
+**Effect:** ArgoCD patches the existing `eshoplite-vm` namespace with
+`istio-injection: enabled` and patches the existing `eshoplite-vm`
+VirtualMachine template with the mesh annotations needed for sidecar mode.
 
 > **⚠️ Sidecar mode requires a VM restart.** The Envoy sidecar is injected into the
 > `virt-launcher` pod at pod creation time. After the namespace label lands, restart
@@ -76,9 +78,10 @@ sed "s|YOUR_ORG/aro-ossm-ghcp.git|${GIT_REPO_ORG}|g" \
 
 Or in the **ArgoCD UI**: delete the `step2-ossm-config` application (with cascade prune).
 
-**Effect:** ArgoCD removes the `istio-injection` label from `eshoplite-vm`. Existing
-sidecar containers remain in the running VMI until the next VM restart. App continues
-to work — mesh is fully transparent.
+**Effect:** ArgoCD runs a delete hook that removes the `istio-injection` label from
+`eshoplite-vm` and removes the mesh annotations from the existing VirtualMachine.
+The namespace and VM are not deleted. Existing sidecar containers remain in the
+running VMI until the next VM restart. App continues to work — mesh is fully transparent.
 
 ---
 

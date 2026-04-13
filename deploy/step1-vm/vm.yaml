@@ -59,8 +59,6 @@ spec:
 
   template:
     metadata:
-      annotations:
-        sidecar.istio.io/inject: 'true'
       creationTimestamp: null
       labels:
         # These labels are inherited by the VirtualMachineInstance pod,

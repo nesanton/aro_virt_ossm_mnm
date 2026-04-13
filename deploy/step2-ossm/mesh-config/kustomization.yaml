@@ -4,8 +4,8 @@
 # ArgoCD Application: step2-ossm-config (TOGGLEABLE)
 #
 # This application is the "before/after" toggle in the demo:
-#   Sync   → adds istio-injection=enabled to eshoplite-vm namespace
-#   Delete → ArgoCD prune removes the label (mesh enrollment revoked)
+#   Sync   → patches the existing namespace + VM for mesh enrollment
+#   Delete → runs a PostDelete hook to remove only the mesh patch
 #
 # Manual sync is intentional — do NOT enable automated sync on this app.
 # The demo presenter controls it via ArgoCD UI or `oc apply/delete`.
@@ -14,6 +14,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
 resources:
-  - namespace-patch.yaml              # Namespace label: istio-injection=enabled (sidecar injection)
+  - mesh-enable-hook.yaml             # Sync hook: patch namespace + VM for mesh enrollment
+  - mesh-disable-hook.yaml            # PostDelete hook: remove mesh patch without deleting VM/namespace
   - gateway.yaml                      # Istio Gateway: eshoplite-gateway (HTTP/80, host *)
   - virtualservice.yaml               # Istio VirtualService: eshoplite → eshoplite svc:80
