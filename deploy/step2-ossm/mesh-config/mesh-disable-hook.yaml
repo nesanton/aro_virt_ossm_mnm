@@ -1,0 +1,25 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: step2-ossm-config-disable
+  namespace: openshift-gitops
+  annotations:
+    argocd.argoproj.io/hook: PostDelete
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+spec:
+  backoffLimit: 1
+  ttlSecondsAfterFinished: 300
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: openshift-gitops-argocd-application-controller
+      containers:
+        - name: oc
+          image: quay.io/openshift/origin-cli:4.16
+          command:
+            - /bin/sh
+            - -ec
+          args:
+            - |
+              oc patch namespace eshoplite-vm --type=merge -p '{"metadata":{"labels":{"istio-injection":null}}}' || true
+              oc patch vm eshoplite-vm -n eshoplite-vm --type=merge -p '{"spec":{"template":{"metadata":{"annotations":{"sidecar.istio.io/inject":null,"traffic.sidecar.istio.io/kubevirtInterfaces":null}}}}}' || true
