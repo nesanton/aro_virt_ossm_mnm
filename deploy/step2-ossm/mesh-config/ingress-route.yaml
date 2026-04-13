@@ -1,0 +1,29 @@
+# ------------------------------------------------------------
+# OpenShift Route -> Istio ingress gateway
+#
+# This is the external entrypoint for step2+ traffic. OpenShift's
+# router terminates TLS and forwards HTTP to the istio-ingressgateway
+# Service in istio-system. From there, Istio Gateway + VirtualService
+# take over and route to the app.
+#
+# Keeping this Route in the toggle app makes the public entrypoint
+# switch alongside mesh enrollment.
+# ------------------------------------------------------------
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: eshoplite-ingress
+  namespace: istio-system
+  labels:
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step2-ossm
+spec:
+  to:
+    kind: Service
+    name: istio-ingressgateway
+    weight: 100
+  port:
+    targetPort: http2
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

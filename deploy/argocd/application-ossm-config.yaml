@@ -7,7 +7,8 @@
 #     oc apply -f deploy/argocd/application-ossm-config.yaml
 #     # Then sync in ArgoCD UI, OR:
 #     argocd app sync step2-ossm-config
-#     # Effect: patches the existing namespace and VM for mesh enrollment.
+#     # Effect: patches the existing namespace and VM for mesh enrollment,
+#     # and exposes the Istio ingress gateway via an OpenShift Route.
 #     # Sidecar mode: VM must be restarted after label is applied for injection.
 #
 #   DISABLE MESH (after → before):

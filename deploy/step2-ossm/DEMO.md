@@ -59,15 +59,20 @@ VirtualMachine template with the mesh annotations needed for sidecar mode.
 > ```
 
 After ~30 seconds with the sidecar running, open Kiali — the `eshoplite` service node
-will appear. Generate some traffic to populate the graph:
+will appear. For step 2 onward, use the Istio ingress gateway Route as the public
+entrypoint so traffic flows through the mesh instead of the direct app Route.
+Generate some traffic to populate the graph:
 
 ```bash
-ROUTE=$(oc get route eshoplite -n eshoplite-vm -o jsonpath='{.spec.host}')
+ROUTE=$(oc get route eshoplite-ingress -n istio-system -o jsonpath='{.spec.host}')
 for i in $(seq 1 20); do
   curl -sk "https://${ROUTE}" -o /dev/null
   sleep 1
 done
 ```
+
+The step 1 Route in `eshoplite-vm` still exists, but it bypasses Istio and should be
+treated as a debug path once the mesh is enabled.
 
 ### Disable the mesh (after → before)
 
@@ -118,6 +123,14 @@ oc get pod -n eshoplite-vm -l app=eshoplite-vm -o jsonpath='{.items[0].spec.cont
 ```
 Also check: `oc get namespace eshoplite-vm -o jsonpath='{.metadata.labels}'` — should
 show `istio-injection: enabled`.
+
+**Which URL should I hit in step 2?**
+Use the Istio ingress Route, not the original app Route:
+```bash
+oc get route eshoplite-ingress -n istio-system -o jsonpath='{.spec.host}'
+```
+If you keep using the original Route in `eshoplite-vm`, traffic bypasses the mesh and
+your `Gateway` / `VirtualService` rules will not participate.
 
 **Check ztunnel is capturing the namespace:**
 ```bash

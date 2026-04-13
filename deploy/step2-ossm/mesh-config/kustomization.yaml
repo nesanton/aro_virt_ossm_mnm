@@ -16,5 +16,6 @@ kind: Kustomization
 resources:
   - mesh-enable-hook.yaml             # Sync hook: patch namespace + VM for mesh enrollment
   - mesh-disable-hook.yaml            # PostDelete hook: remove mesh patch without deleting VM/namespace
+  - ingress-route.yaml                # OpenShift Route -> istio-ingressgateway Service (external entrypoint)
   - gateway.yaml                      # Istio Gateway: eshoplite-gateway (HTTP/80, host *)
   - virtualservice.yaml               # Istio VirtualService: eshoplite → eshoplite svc:80
