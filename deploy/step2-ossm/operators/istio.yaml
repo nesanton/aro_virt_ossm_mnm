@@ -9,3 +9,13 @@ spec:
   version: v1.28-latest
   namespace: istio-system
   profile: default
+  values:
+    sidecarInjectorWebhook:
+      # Never inject into OpenShift build pods (label added automatically by OCP).
+      # Without this, the Envoy sidecar intercepts the builder's outbound TCP to
+      # GitHub and to the Kube API server, causing S2I builds to fail in any
+      # mesh-enrolled namespace.
+      neverInjectSelector:
+        - matchExpressions:
+          - key: openshift.io/build.name
+            operator: Exists

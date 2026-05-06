@@ -30,13 +30,6 @@ metadata:
     app: eshoplite-products
     app.kubernetes.io/part-of: aro-ossm-demo
     demo-step: step3-products
-  annotations:
-    # Prevent Istio sidecar injection in the build pod.
-    # The eshoplite-vm namespace has istio-injection=enabled; without this
-    # the sidecar intercepts the builder's outbound connections to GitHub
-    # and the Kube API, causing the clone and status-update to fail.
-    # OpenShift propagates BuildConfig annotations to the Build pod.
-    sidecar.istio.io/inject: "false"
 spec:
   source:
     type: Git
