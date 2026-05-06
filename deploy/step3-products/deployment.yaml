@@ -1,0 +1,80 @@
+# ------------------------------------------------------------
+# Deployment — eshoplite-products
+#
+# Runs the eShopLite.Products .NET 9 minimal API built by the
+# BuildConfig (eshoplite-products).
+#
+# Mesh: the eshoplite-vm namespace has istio-injection=enabled
+# (applied by step2-ossm-config). The pod annotation here is
+# explicit belt-and-suspenders; remove it if you want to run
+# Products outside the mesh temporarily.
+#
+# Port 8080: standard non-root container port; matches the Red Hat
+# UBI9 .NET S2I runtime default (ASPNETCORE_URLS=http://*:8080).
+#
+# SQLite: the products.db file lives on the container filesystem and
+# is ephemeral. The DbContext seeds 5 sample products via EF migrations
+# on first startup (EnsureCreatedAsync + HasData seed), so the Products
+# API is immediately populated after the pod starts.
+# ------------------------------------------------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: eshoplite-products
+  namespace: eshoplite-vm
+  labels:
+    app: eshoplite-products
+    version: v1
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step3-products
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: eshoplite-products
+  template:
+    metadata:
+      labels:
+        app: eshoplite-products
+        version: v1
+        app.kubernetes.io/part-of: aro-ossm-demo
+      annotations:
+        sidecar.istio.io/inject: "true"
+    spec:
+      containers:
+        - name: products
+          # Internal registry image — populated once the BuildConfig build completes.
+          # The Deployment will be Pending / ImagePullBackOff for ~3-5 min during first build.
+          image: image-registry.openshift-image-registry.svc:5000/eshoplite-vm/eshoplite-products:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: ASPNETCORE_URLS
+              value: http://0.0.0.0:8080
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Production
+            - name: DOTNET_CLI_TELEMETRY_OPTOUT
+              value: "1"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

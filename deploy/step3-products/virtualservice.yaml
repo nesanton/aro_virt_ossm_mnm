@@ -1,0 +1,54 @@
+# ------------------------------------------------------------
+# VirtualService — eshoplite-products  (prefix /api/products)
+#
+# Routes requests with URI prefix /api/products to the Products
+# microservice container.  All other traffic continues to match
+# the catch-all VirtualService in step2-ossm-config (eshoplite VS),
+# which routes to the VM's monolith.
+#
+# Istio merges VirtualServices that share the same host + gateway.
+# Prefix-match routes are evaluated before catch-all routes, so
+# /api/products reliably lands on the container, not the VM.
+#
+# Traffic splitting demo (weight-based, e.g. 50/50 canary):
+#
+#   route:
+#     - destination:
+#         host: eshoplite          # VM monolith
+#         port:
+#           number: 80
+#       weight: 50
+#     - destination:
+#         host: eshoplite-products  # .NET microservice
+#         port:
+#           number: 8080
+#       weight: 50
+#
+# (Change eshoplite VS accordingly to remove its /api/products handling
+#  when doing weight-based split.)
+# ------------------------------------------------------------
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: eshoplite-products
+  namespace: eshoplite-vm
+  labels:
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step3-products
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - eshoplite-gateway
+  http:
+    - name: products-api
+      match:
+        - uri:
+            prefix: /api/products
+      route:
+        - destination:
+            host: eshoplite-products
+            port:
+              number: 8080

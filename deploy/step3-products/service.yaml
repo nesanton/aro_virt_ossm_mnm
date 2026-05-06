@@ -1,0 +1,24 @@
+# ------------------------------------------------------------
+# Service — eshoplite-products
+#
+# ClusterIP service for the Products API pod.
+# Port name "http" is required by Istio for automatic protocol detection.
+# Istio uses the port name prefix to distinguish HTTP/1.1, HTTP/2, gRPC, etc.
+# ------------------------------------------------------------
+apiVersion: v1
+kind: Service
+metadata:
+  name: eshoplite-products
+  namespace: eshoplite-vm
+  labels:
+    app: eshoplite-products
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step3-products
+spec:
+  selector:
+    app: eshoplite-products
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      protocol: TCP

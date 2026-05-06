@@ -1,0 +1,19 @@
+# ------------------------------------------------------------
+# ImageStream — eshoplite-products
+#
+# Receives the image produced by the BuildConfig (eshoplite-products).
+# The Deployment references this stream tag so it automatically picks
+# up freshly built images.
+# ------------------------------------------------------------
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: eshoplite-products
+  namespace: eshoplite-vm
+  labels:
+    app: eshoplite-products
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step3-products
+spec:
+  lookupPolicy:
+    local: true   # lets Deployments in this namespace reference the tag by short name

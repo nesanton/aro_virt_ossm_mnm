@@ -1,0 +1,65 @@
+# ------------------------------------------------------------
+# BuildConfig — eshoplite-products
+#
+# Builds eShopLite.Products from the upstream workshop GitHub repo
+# directly inside OpenShift using the Red Hat UBI9 .NET 9 S2I builder.
+#
+# Build chain:
+#   GitHub source (contextDir: eShopLite.Products project root)
+#   → S2I builder: registry.access.redhat.com/ubi9/dotnet-90  (UBI9 + .NET 9 SDK)
+#     runs: dotnet restore && dotnet publish -c Release
+#   → output image based on ubi9/dotnet-90-runtime (lean, SDK-free)
+#   → pushed to ImageStream eshoplite-products:latest
+#
+# Alternative builder: if your cluster ships a built-in dotnet IS
+# (oc get is dotnet -n openshift), use imageStreamTag instead:
+#   from:
+#     kind: ImageStreamTag
+#     name: dotnet:9.0
+#     namespace: openshift
+#
+# Trigger: ConfigChange fires one build automatically on creation.
+# Subsequent rebuilds: oc start-build eshoplite-products -n eshoplite-vm
+# ------------------------------------------------------------
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: eshoplite-products
+  namespace: eshoplite-vm
+  labels:
+    app: eshoplite-products
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step3-products
+spec:
+  source:
+    type: Git
+    git:
+      uri: https://github.com/Azure-Samples/modernize-monolith-workshop
+      ref: main
+    contextDir: 5-add-dotnet-aspire/StartSample/src/eShopLite.Products
+
+  strategy:
+    type: Source
+    sourceStrategy:
+      from:
+        kind: DockerImage
+        name: registry.access.redhat.com/ubi9/dotnet-90:latest
+      env:
+        # Explicit project file — safe even when there is only one csproj in contextDir
+        - name: DOTNET_STARTUP_PROJECT
+          value: eShopLite.Products.csproj
+        # Skip ReadyToRun cross-compilation; not needed for demo
+        - name: DOTNET_PUBLISH_READYTORUN
+          value: "false"
+        # Disable telemetry in the build container
+        - name: DOTNET_CLI_TELEMETRY_OPTOUT
+          value: "1"
+
+  output:
+    to:
+      kind: ImageStreamTag
+      name: eshoplite-products:latest
+
+  triggers:
+    # Auto-trigger one build when this BuildConfig is first created / updated
+    - type: ConfigChange

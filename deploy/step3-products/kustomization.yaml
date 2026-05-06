@@ -1,0 +1,32 @@
+# ------------------------------------------------------------
+# Kustomize entry point for deploy/step3-products/
+#
+# ArgoCD Application: step3-products
+#
+# Deploys the eShopLite.Products .NET 9 microservice as a container
+# in the eshoplite-vm namespace alongside the VM, and adds it to the
+# Istio service mesh.
+#
+# What this deploys:
+#   imagestream.yaml    — ImageStream to receive the built image
+#   buildconfig.yaml    — S2I build from GitHub source (UBI9 + .NET 9)
+#                         auto-triggers on first sync; ~3-5 min build
+#   deployment.yaml     — Products API pod with Istio sidecar
+#   service.yaml        — ClusterIP service (port 8080, name: http)
+#   virtualservice.yaml — Routes /api/products to Products container
+#                         (catch-all routes to VM remain in step2 VS)
+#
+# Pre-requisites:
+#   - step2-ossm-operators synced (Istio control plane running)
+#   - step2-ossm-config synced (namespace mesh-enrolled, Gateway present)
+#   - VM VMI running with sidecar injected (2/2 containers)
+# ------------------------------------------------------------
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - imagestream.yaml
+  - buildconfig.yaml
+  - deployment.yaml
+  - service.yaml
+  - virtualservice.yaml

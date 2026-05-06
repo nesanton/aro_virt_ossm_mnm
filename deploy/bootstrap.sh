@@ -184,10 +184,6 @@ spec:
         labels:
           node-role.kubernetes.io/worker: ""
           workload-type: virtualization
-      taints:
-        - key: kubevirt.io/drain
-          effect: NoSchedule
-          # Removed automatically by CNV when the node is ready for VM workloads
       providerSpec:
         value:
           apiVersion: machine.openshift.io/v1beta1
@@ -396,3 +392,26 @@ echo "#   # → prune removes the istio-injection=enabled label from eshoplite-v
 echo "#"
 echo "# Kiali URL (once deployed):"
 echo "#   oc get route kiali -n istio-system -o jsonpath='{.spec.host}'"
+echo "#"
+echo "# ============================================================"
+echo "# STEP 3: eShopLite.Products microservice (strangler fig)"
+echo "# ============================================================"
+echo "# Pre-requisite: step2-ossm-config synced + VM VMI is 2/2 (sidecar injected)."
+echo "#"
+echo "# Deploy Products microservice and add /api/products to the mesh:"
+echo "#"
+echo "#   sed \"s|https://github.com/YOUR_ORG/aro-ossm-ghcp.git|\${GIT_REPO_URL}|g\" \\"
+echo "#     deploy/argocd/application-products.yaml | oc apply -f -"
+echo "#   argocd app sync step3-products"
+echo "#"
+echo "# OpenShift will build the image from GitHub source (UBI9 + .NET 9 S2I, ~3-5 min)."
+echo "# Watch the build log:"
+echo "#   oc logs -f bc/eshoplite-products -n eshoplite-vm"
+echo "#"
+echo "# Once the pod is Running (2/2 with sidecar), test:"
+echo "#   INGRESS=\$(oc get route eshoplite-ingress -n istio-system -o jsonpath='{.spec.host}')"
+echo "#   curl https://\$INGRESS/api/products    # → .NET Products microservice"
+echo "#   curl https://\$INGRESS/                # → VM monolith (unchanged)"
+echo "#"
+echo "# Remove (prunes all step3 resources, restores VM-only routing):"
+echo "#   oc delete -f deploy/argocd/application-products.yaml"

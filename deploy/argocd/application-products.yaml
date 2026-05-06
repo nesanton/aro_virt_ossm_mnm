@@ -1,0 +1,58 @@
+# ------------------------------------------------------------
+# ArgoCD Application — step3-products
+#
+# Deploys the eShopLite.Products .NET 9 microservice container
+# into the eshoplite-vm namespace (alongside the VM) and adds
+# it to the Istio mesh.
+#
+# Apply (after step2-ossm-config is synced and VM VMI is 2/2):
+#
+#    oc apply -f deploy/argocd/application-products.yaml 
+#
+# Then sync:
+#   argocd app sync step3-products
+#   # OR sync via ArgoCD UI
+#
+# Watch the build (~3-5 min):
+#   oc logs -f bc/eshoplite-products -n eshoplite-vm
+#
+# Once the image is pushed the Deployment pod will start:
+#   oc get pod -n eshoplite-vm -l app=eshoplite-products
+#
+# Test the Products API via the Istio ingress route:
+#   INGRESS=$(oc get route eshoplite-ingress -n istio-system -o jsonpath='{.spec.host}')
+#   curl https://$INGRESS/api/products
+#
+# Remove:
+#   oc delete -f deploy/argocd/application-products.yaml
+#   # ArgoCD prunes all step3 resources (Deployment, Service, VS, BuildConfig, ImageStream)
+# ------------------------------------------------------------
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: step3-products
+  namespace: openshift-gitops
+  labels:
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step3-products
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: eshoplite-demo
+
+  source:
+    repoURL: "https://github.com/nesanton/aro_virt_ossm_mnm.git"   # <-- replaced by bootstrap sed
+    targetRevision: main
+    path: deploy/step3-products
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: eshoplite-vm
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - ServerSideApply=true
