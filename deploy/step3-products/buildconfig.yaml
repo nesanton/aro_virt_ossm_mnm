@@ -43,7 +43,7 @@ spec:
     sourceStrategy:
       from:
         kind: DockerImage
-        name: registry.access.redhat.com/ubi9/dotnet-90:latest
+        name: registry.redhat.io/ubi8/dotnet-90:latest
       env:
         # Explicit project file — safe even when there is only one csproj in contextDir
         - name: DOTNET_STARTUP_PROJECT
