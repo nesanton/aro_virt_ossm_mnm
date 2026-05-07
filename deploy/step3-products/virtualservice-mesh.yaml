@@ -1,0 +1,54 @@
+# ------------------------------------------------------------
+# VirtualService — eshoplite-products-mesh  (east-west traffic)
+#
+# Governs sidecar-to-sidecar calls to the eshoplite-products service
+# — i.e. the call made by StoreCore running on the VM after patch-storecore.sh
+# is applied.
+#
+# Why a separate VS from virtualservice.yaml:
+#   virtualservice.yaml uses gateways: [eshoplite-gateway] → covers only
+#   traffic entering from the Istio ingress gateway (north-south).
+#   This VS uses gateways: [mesh] → covers traffic from any sidecar
+#   (east-west). The two are additive; Istio merges them on the same host.
+#
+# Weight-based canary demo (after patch-storecore.sh):
+#   Edit this VS in the OpenShift Console (Networking → Istio Config)
+#   to split StoreCore's product fetches between the container and VM:
+#
+#     route:
+#       - destination:
+#           host: eshoplite-products
+#           port:
+#             number: 8080
+#         weight: 50
+#       - destination:
+#           host: eshoplite          # VM also serves /api/products on :80
+#           port:
+#             number: 80
+#         weight: 50
+#
+# Kiali will show the eshoplite → eshoplite-products service edge with
+# the live split visible on the graph.
+# ------------------------------------------------------------
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: eshoplite-products-mesh
+  namespace: eshoplite-vm
+  labels:
+    app.kubernetes.io/part-of: aro-ossm-demo
+    demo-step: step3-products
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  hosts:
+    - eshoplite-products   # short name resolves to eshoplite-products.eshoplite-vm.svc.cluster.local
+  gateways:
+    - mesh                 # applies to east-west sidecar traffic only
+  http:
+    - name: products-mesh
+      route:
+        - destination:
+            host: eshoplite-products
+            port:
+              number: 8080
