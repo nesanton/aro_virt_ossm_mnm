@@ -29,4 +29,5 @@ resources:
   - buildconfig.yaml
   - deployment.yaml
   - service.yaml
-  - virtualservice.yaml
+  - virtualservice.yaml          # north-south: /api/products via ingressgateway
+  - virtualservice-mesh.yaml     # east-west: StoreCore sidecar → Products svc (enables canary after patch-storecore.sh)
